@@ -83,15 +83,23 @@ void computeNetUpdatesKernel(
     const int i_offsetX, const int i_offsetY,
     const int i_blockOffsetX, const int i_blockOffsetY
 ) {
+	// Recover absolute array indices from CUDA thread constants
 	int i = blockIdx.x * TILE_SIZE + threadIdx.x;
 	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
 
+	// T is from ./solvers/FWaveCuda.h
+	// this implements "typedef float T;"  by default
 	T netUpdates[5];
+
+	
+	// computeOneDPo...(arg0,arg1,arg2) = arg0*arg2 + arg1
 	int oneDPosition = computeOneDPositionKernel(i + i_offsetX + i_blockOffsetX,
 		 j + i_offsetY + i_blockOffsetY,
 		 i_nY + 2);
 	int maxWaveSpeedPos = computeOneDPositionKernel(i, j, i_nY+1);
 
+	// Returns the values of net updates in T netUpdates[5] with values
+	// corresponding to ("h_left","h_right","hu_left","hu_right","MaxWaveSpeed").
 	fWaveComputeNetUpdates(G,
 		i_h[oneDPosition - i_nY - 2],
 		i_h[oneDPosition],
