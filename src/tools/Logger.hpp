@@ -347,10 +347,11 @@ class tools::Logger {
      * @param i_time time in seconds.
      */
     void printSimulationTime( const float i_time,
+		    	      const float i_dt,
                               const std::string i_simulationTimeMessage = "Simulation at time" ) {
       if(processRank == 0) {
         timeCout() << indentation
-                  << i_simulationTimeMessage << ": " << i_time << " seconds." << std::endl;
+                  << i_simulationTimeMessage << ": " << i_time << " seconds, dt: " << i_dt << std::endl;
       }
     }
 
