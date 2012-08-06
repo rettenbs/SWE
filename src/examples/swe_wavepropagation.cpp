@@ -70,7 +70,7 @@ int main( int argc, char** argv ) {
   // check if the necessary command line input parameters are given
   #ifndef READXML
   if(argc != 4) {
-    std::cout << "Aborting ... please provide proper input parameters." << std::endl
+    std::cout << "Aborting .. please provide proper input parameters." << std::endl
               << "Example: ./SWE_parallel 200 300 /work/openmp_out" << std::endl
               << "\tfor a single block of size 200 * 300" << std::endl;
     return 1;
