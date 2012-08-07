@@ -236,7 +236,7 @@ int main( int argc, char** argv ) {
       l_t += l_maxTimeStepWidth;
 
       // print the current simulation time
-      s_sweLogger.printSimulationTime(l_t, l_maxTimeStepWidth);
+//DBG      s_sweLogger.printSimulationTime(l_t, l_maxTimeStepWidth);
     }
 
     // update the cpu time in the logger

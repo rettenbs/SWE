@@ -37,6 +37,8 @@
 #include "tools/Logger.hpp"
 static tools::Logger s_sweLogger;
 #endif
+// C includes
+#include <sys/time.h>
 
 // CUDA-C includes
 #include <cuda.h>
@@ -224,6 +226,12 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
    * Compute the net updates for the 'main part and the two 'boundary' parts.
    */
 
+	// use sys/time to get higher-resolution timing
+	struct timeval start_time;
+	struct timeval end_time;
+	long diff;
+        gettimeofday(&start_time, NULL);
+
 	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
 		hd,
 		hud,
@@ -312,13 +320,22 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
 		nx/TILE_SIZE,
 		ny/TILE_SIZE);
 
+	gettimeofday(&end_time, NULL);
+        diff = ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
+	printf("computeNetUpdatesKernel time: %ld\n",diff);
+
   /*
    * Finalize (max reduction of the maximumWaveSpeeds-array.)
    *
    * The Thrust library is used in this step.
    * An optional kernel could be written for the maximum reduction.
    */
-  // Thrust pointer to the device array
+  // Thrust pointer to the device array        diff = ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
+
+
+	// Begin timing for thrust max timestep part
+	gettimeofday(&start_time, NULL);
+
   thrust::device_ptr<float> l_thrustDevicePointer(l_maximumWaveSpeedsD);
   //thrust::device_ptr<float> l_thrustDevicePointer = thrust::device_pointer_cast(l_maximumWaveSpeedsD);
 
@@ -336,8 +353,15 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
 
   // CFL = 0.5
   maxTimestep *= (float)0.4;
-}
 
+	
+	// Finish timing for thrust max timestep part
+	gettimeofday(&end_time, NULL);
+        diff = ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
+        printf("thrust maxTimestep computation time: %ld\n",diff);
+
+
+}
 /**
  * Update the cells with a given global time step.
  *
