@@ -105,43 +105,52 @@ void computeNetUpdatesKernel(
 	// Returns the values of net updates in T netUpdates[5] with values
 	// corresponding to ("h_left","h_right","hu_left","hu_right","MaxWaveSpeed").
 	fWaveComputeNetUpdates(G,
-		i_h[oneDPosition - i_nY - 2],
 		i_h[oneDPosition],
-		i_hu[oneDPosition - i_nY - 2],
+		i_h[oneDPosition + i_nY + 2],
 		i_hu[oneDPosition],
-		i_b[oneDPosition - i_nY - 2],
+		i_hu[oneDPosition + i_nY + 2],
 		i_b[oneDPosition],
+		i_b[oneDPosition + i_nY + 2],
 		netUpdates);
 
-	o_hNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[0];
-	o_hNetUpdatesRightD[netUpdatePosition - i_nY - 1] = netUpdates[1];
-	o_huNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[2];
-	o_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] = netUpdates[3];
+	o_hNetUpdatesLeftD[netUpdatePosition] = netUpdates[0];
+	o_hNetUpdatesRightD[netUpdatePosition] = netUpdates[1];
+	o_huNetUpdatesLeftD[netUpdatePosition] = netUpdates[2];
+	o_huNetUpdatesRightD[netUpdatePosition] = netUpdates[3];
 	localMaxWaveSpeed = netUpdates[4];
 
 	fWaveComputeNetUpdates(G,
-		i_h[oneDPosition - 1],
 		i_h[oneDPosition],
-		i_hv[oneDPosition - 1],
+		i_h[oneDPosition + 1],
 		i_hv[oneDPosition],
-		i_b[oneDPosition - 1],
+		i_hv[oneDPosition + 1],
 		i_b[oneDPosition],
+		i_b[oneDPosition + 1],
 		netUpdates);
 
+<<<<<<< HEAD
 	printf("Test %i\n", netUpdatePosition);
 	o_hNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[0];
 	o_hNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[1];
 	o_hvNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[2];
 	o_hvNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[3];
+=======
+	//printf("netupdate: %i, %i, %i, %i, %i\n", netUpdatePosition, i_offsetX, i_offsetY, i_nX, i_nY);
+	o_hNetUpdatesBelowD[netUpdatePosition] = netUpdates[0];
+	o_hNetUpdatesAboveD[netUpdatePosition] = netUpdates[1];
+	o_hvNetUpdatesBelowD[netUpdatePosition] = netUpdates[2];
+	o_hvNetUpdatesAboveD[netUpdatePosition] = netUpdates[3];
+>>>>>>> 23677d979f33899fabb40b22601ad29e615406a1
 	if (netUpdates[4] > localMaxWaveSpeed)
 		localMaxWaveSpeed = netUpdates[4];
 
+	// thread1 is the id of this thread in the block
 	int thread1 = threadIdx.x * blockDim.y + threadIdx.y;
 	maxWaveSpeed[thread1] = localMaxWaveSpeed;
 
 	__syncthreads();
 
-	// Calculate the maximum of this block
+	// Calculate the maximum wave speed of this block
 	// taken from https://www.sharcnet.ca/help/index.php/CUDA_tips_and_tricks
 	int nTotalThreads = blockDim.x * blockDim.y;
 
@@ -168,7 +177,7 @@ void computeNetUpdatesKernel(
   		nTotalThreads = halfPoint;
 	}
 
-	o_maximumWaveSpeeds[(blockIdx.x+i_blockOffsetX) * i_nY/TILE_SIZE + (blockIdx.y+i_blockOffsetY)] = maxWaveSpeed[0];
+	o_maximumWaveSpeeds[(blockIdx.x+i_blockOffsetX) * (i_nY/TILE_SIZE+1) + (blockIdx.y+i_blockOffsetY)] = maxWaveSpeed[0];
 }
 
 /**
