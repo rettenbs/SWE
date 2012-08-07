@@ -92,12 +92,12 @@ void computeNetUpdatesKernel(
 	
 	// computeOneDPo...(arg0,arg1,arg2) = arg0*arg2 + arg1
 	// Position in h, hu, hv, b
-	int oneDPosition = computeOneDPositionKernel(i + i_offsetX + i_blockOffsetX,
-		 j + i_offsetY + i_blockOffsetY,
+	int oneDPosition = computeOneDPositionKernel(i + i_offsetX,
+		 j + i_offsetY,
 		 i_nY + 2);
 	// Position in *NetUpdates*
-	int netUpdatePosition = computeOneDPositionKernel(i + i_offsetX + i_blockOffsetX,
-		j + i_offsetY + i_blockOffsetY,
+	int netUpdatePosition = computeOneDPositionKernel(i + i_offsetX,
+		j + i_offsetY,
 		i_nY + 1);
 	T localMaxWaveSpeed; // local maximum wave speed
 	__shared__ T maxWaveSpeed[TILE_SIZE * TILE_SIZE]; // maximum wave speeds for this block

@@ -263,7 +263,7 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
 		nx,
 		ny,
 		1,
-		1,
+		1 + ny,
 		0,
 		ny/TILE_SIZE);
 
@@ -285,7 +285,7 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
 		l_maximumWaveSpeedsD,
 		nx,
 		ny,
-		1,
+		1 + nx,
 		1,
 		nx/TILE_SIZE,
 		0);
