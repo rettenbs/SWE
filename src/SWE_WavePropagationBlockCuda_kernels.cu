@@ -140,7 +140,7 @@ void computeNetUpdatesKernel(
 
 	__syncthreads();
 
-	// Calculate the maximum of this block
+	// Calculate the maximum wave speed of this block
 	// taken from https://www.sharcnet.ca/help/index.php/CUDA_tips_and_tricks
 	int nTotalThreads = blockDim.x * blockDim.y;
 
