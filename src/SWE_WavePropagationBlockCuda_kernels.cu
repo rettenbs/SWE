@@ -92,9 +92,14 @@ void computeNetUpdatesKernel(
 
 	
 	// computeOneDPo...(arg0,arg1,arg2) = arg0*arg2 + arg1
+	// Position in h, hu, hv, b
 	int oneDPosition = computeOneDPositionKernel(i + i_offsetX + i_blockOffsetX,
 		 j + i_offsetY + i_blockOffsetY,
 		 i_nY + 2);
+	// Position in *NetUpdates*
+	int netUpdatePosition = computeOneDPositionKernel(i + i_offsetX + i_blockOffsetX,
+		j + i_offsetY + i_blockOffsetY,
+		i_nY + 1);
 	T localMaxWaveSpeed; // local maximum wave speed
 	__shared__ T maxWaveSpeed[TILE_SIZE * TILE_SIZE]; // maximum wave speeds for this block
 
@@ -109,10 +114,10 @@ void computeNetUpdatesKernel(
 		i_b[oneDPosition],
 		netUpdates);
 
-	o_hNetUpdatesLeftD[oneDPosition - i_nY - 2] = netUpdates[0];
-	o_hNetUpdatesRightD[oneDPosition] = netUpdates[1];
-	o_huNetUpdatesLeftD[oneDPosition - i_nY - 2] = netUpdates[2];
-	o_huNetUpdatesRightD[oneDPosition] = netUpdates[3];
+	o_hNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[0];
+	o_hNetUpdatesRightD[netUpdatePosition] = netUpdates[1];
+	o_huNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[2];
+	o_huNetUpdatesRightD[netUpdatePosition] = netUpdates[3];
 	localMaxWaveSpeed = netUpdates[4];
 
 	fWaveComputeNetUpdates(G,
@@ -124,10 +129,10 @@ void computeNetUpdatesKernel(
 		i_b[oneDPosition],
 		netUpdates);
 
-	o_hNetUpdatesBelowD[oneDPosition - 1] = netUpdates[0];
-	o_hNetUpdatesAboveD[oneDPosition] = netUpdates[1];
-	o_hvNetUpdatesBelowD[oneDPosition - 1] = netUpdates[2];
-	o_hvNetUpdatesAboveD[oneDPosition] = netUpdates[3];
+	o_hNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[0];
+	o_hNetUpdatesAboveD[netUpdatePosition] = netUpdates[1];
+	o_hvNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[2];
+	o_hvNetUpdatesAboveD[netUpdatePosition] = netUpdates[3];
 	if (netUpdates[4] > localMaxWaveSpeed)
 		localMaxWaveSpeed = netUpdates[4];
 
@@ -199,19 +204,22 @@ void updateUnknownsKernel(
 	int i = blockIdx.x * TILE_SIZE + threadIdx.x;
 	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
 
-	// TODO I think we also need the blockOffset here ...
-	int oneDPosition = computeOneDPositionKernel(i, j, i_nY + 2);
+	// TODO I think we also need the (block)Offset here ...
+	// Position in h, hu, hv, b
+	int oneDPosition = computeOneDPositionKernel(i+1, j+1, i_nY + 2);
+	// Position in *NetUpdates*
+	int netUpdatePosition = computeOneDPositionKernel(i+1, j+1, i_nY + 1);
 
 	// h updates as the sum of x- and y- positions	
 	io_h[oneDPosition] -=
-                          i_updateWidthX * (i_hNetUpdatesRightD[oneDPosition - i_nY - 2] + i_hNetUpdatesLeftD[oneDPosition])
-			+ i_updateWidthY * (i_hNetUpdatesAboveD[oneDPosition - i_nY - 2] + i_hNetUpdatesBelowD[oneDPosition]);
+                          i_updateWidthX * (i_hNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_hNetUpdatesLeftD[netUpdatePosition])
+			+ i_updateWidthY * (i_hNetUpdatesAboveD[netUpdatePosition - 1] + i_hNetUpdatesBelowD[netUpdatePosition]);
 
 	// hu contains only x component data, so it updates from the left and right
-	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[oneDPosition - i_nY - 2] + i_huNetUpdatesLeftD[oneDPosition]);
+	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_huNetUpdatesLeftD[netUpdatePosition]);
 
 	// hv contains ony y component data, so it updates from the top and bottom
-	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[oneDPosition - i_nY - 2] + i_hvNetUpdatesBelowD[oneDPosition]);
+	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[netUpdatePosition - 1] + i_hvNetUpdatesBelowD[netUpdatePosition]);
 }
 
 /**
