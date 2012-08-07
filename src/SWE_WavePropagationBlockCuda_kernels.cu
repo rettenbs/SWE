@@ -83,13 +83,12 @@ void computeNetUpdatesKernel(
     const int i_blockOffsetX, const int i_blockOffsetY
 ) {
 	// Recover absolute array indices from CUDA thread constants
-	int i = blockIdx.x * TILE_SIZE + threadIdx.x;
-	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	int j = blockIdx.y * blockDim.y + threadIdx.y;
 
 	// T is from ./solvers/FWaveCuda.h
 	// this implements "typedef float T;"  by default
 	T netUpdates[5];
-
 	
 	// computeOneDPo...(arg0,arg1,arg2) = arg0*arg2 + arg1
 	// Position in h, hu, hv, b
@@ -115,9 +114,9 @@ void computeNetUpdatesKernel(
 		netUpdates);
 
 	o_hNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[0];
-	o_hNetUpdatesRightD[netUpdatePosition] = netUpdates[1];
+	o_hNetUpdatesRightD[netUpdatePosition - i_nY - 1] = netUpdates[1];
 	o_huNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[2];
-	o_huNetUpdatesRightD[netUpdatePosition] = netUpdates[3];
+	o_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] = netUpdates[3];
 	localMaxWaveSpeed = netUpdates[4];
 
 	fWaveComputeNetUpdates(G,
@@ -130,27 +129,26 @@ void computeNetUpdatesKernel(
 		netUpdates);
 
 	o_hNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[0];
-	o_hNetUpdatesAboveD[netUpdatePosition] = netUpdates[1];
+	o_hNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[1];
 	o_hvNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[2];
-	o_hvNetUpdatesAboveD[netUpdatePosition] = netUpdates[3];
+	o_hvNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[3];
 	if (netUpdates[4] > localMaxWaveSpeed)
 		localMaxWaveSpeed = netUpdates[4];
 
-	maxWaveSpeed[threadIdx.x * TILE_SIZE + threadIdx.y] = localMaxWaveSpeed;
+	int thread1 = threadIdx.x * blockDim.y + threadIdx.y;
+	maxWaveSpeed[thread1] = localMaxWaveSpeed;
 
 	__syncthreads();
 
 	// Calculate the maximum of this block
 	// taken from https://www.sharcnet.ca/help/index.php/CUDA_tips_and_tricks
-	int nTotalThreads = TILE_SIZE * TILE_SIZE;
+	int nTotalThreads = blockDim.x * blockDim.y;
 
 	while (nTotalThreads > 1)
 	{
  		int halfPoint = (nTotalThreads >> 1);	// divide by two
 
 		// only the first half of the threads will be active. 
-		int thread1 = threadIdx.x * TILE_SIZE + threadIdx.y;
-
   		if (thread1 < halfPoint)
   		{
    			int thread2 = thread1 + halfPoint;
@@ -169,7 +167,7 @@ void computeNetUpdatesKernel(
   		nTotalThreads = halfPoint;
 	}
 
-	o_maximumWaveSpeeds[blockIdx.x * gridDim.y + blockIdx.y] = maxWaveSpeed[0];
+	o_maximumWaveSpeeds[(blockIdx.x+i_blockOffsetX) * i_nY/TILE_SIZE + (blockIdx.y+i_blockOffsetY)] = maxWaveSpeed[0];
 }
 
 /**

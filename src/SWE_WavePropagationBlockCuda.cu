@@ -215,8 +215,7 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
   float* l_maximumWaveSpeedsD;
 
   // size of the maximum wave speed array (dimension of the grid + ghost layers, without the top right block), sizeof(float) not included
-  //int l_sizeMaxWaveSpeeds = ((dimGrid.x+1)*(dimGrid.y+1)-1);
-  int l_sizeMaxWaveSpeeds = dimGrid.x * dimGrid.y;
+  int l_sizeMaxWaveSpeeds = ((dimGrid.x+1)*(dimGrid.y+1)-1);
   cudaMalloc((void**)&l_maximumWaveSpeedsD, (l_sizeMaxWaveSpeeds*sizeof(float)) );
 
 
@@ -243,6 +242,52 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
 		1,
 		1,
 		0,
+		0);
+
+	dimBlock.x = TILE_SIZE; dimBlock.y = 1;
+	dimGrid.x = nx/TILE_SIZE; dimGrid.y = 1;
+	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
+		hd,
+		hud,
+		hvd,
+		bd,
+		hNetUpdatesLeftD,
+		hNetUpdatesRightD,
+		huNetUpdatesLeftD,
+		huNetUpdatesRightD,
+    		hNetUpdatesBelowD,
+		hNetUpdatesAboveD,
+		hvNetUpdatesBelowD,
+		hvNetUpdatesAboveD,
+		l_maximumWaveSpeedsD,
+		nx,
+		ny,
+		1,
+		1,
+		0,
+		ny/TILE_SIZE);
+
+	dimBlock.x = 1; dimBlock.y = TILE_SIZE;
+	dimGrid.x = 1; dimGrid.y = ny/TILE_SIZE;
+	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
+		hd,
+		hud,
+		hvd,
+		bd,
+		hNetUpdatesLeftD,
+		hNetUpdatesRightD,
+		huNetUpdatesLeftD,
+		huNetUpdatesRightD,
+    		hNetUpdatesBelowD,
+		hNetUpdatesAboveD,
+		hvNetUpdatesBelowD,
+		hvNetUpdatesAboveD,
+		l_maximumWaveSpeedsD,
+		nx,
+		ny,
+		1,
+		1,
+		nx/TILE_SIZE,
 		0);
 
   /*
