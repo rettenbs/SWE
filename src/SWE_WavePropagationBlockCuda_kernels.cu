@@ -200,7 +200,7 @@ void updateUnknownsKernel(
 	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
 
 	// TODO I think we also need the blockOffset here ...
-	int oneDPosition = computeOneDPositionKernel(i, j, i_nY + 2);
+	int oneDPosition = computeOneDPositionKernel(i+1, j+1, i_nY + 2);
 
 	
 	io_h[oneDPosition] -= i_updateWidthX * (i_hNetUpdatesRightD[oneDPosition - i_nY - 2]
