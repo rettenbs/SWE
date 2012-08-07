@@ -166,14 +166,17 @@ void updateUnknownsKernel(
 	// TODO I think we also need the blockOffset here ...
 	int oneDPosition = computeOneDPositionKernel(i, j, i_nY + 2);
 
+	
 	io_h[oneDPosition] -= i_updateWidthX * (i_hNetUpdatesRightD[oneDPosition - i_nY - 2]
 			+ i_hNetUpdatesLeftD[oneDPosition])
-		+ i_updateWidthY * (i_hNetUpdatesAboveD[oneDPosition - i_nY - 2]
+			+ i_updateWidthY * (i_hNetUpdatesAboveD[oneDPosition - i_nY - 2]
 			+ i_hNetUpdatesBelowD[oneDPosition]);
+
 	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[oneDPosition - i_nY - 2]
-		+ i_huNetUpdatesLeftD[oneDPosition]);
+			+ i_huNetUpdatesLeftD[oneDPosition]);
+
 	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[oneDPosition - i_nY - 2]
-		+ i_hvNetUpdatesBelowD[oneDPosition]);
+			+ i_hvNetUpdatesBelowD[oneDPosition]);
 }
 
 /**
