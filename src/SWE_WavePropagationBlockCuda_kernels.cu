@@ -135,6 +135,7 @@ void computeNetUpdatesKernel(
 	if (netUpdates[4] > localMaxWaveSpeed)
 		localMaxWaveSpeed = netUpdates[4];
 
+	// thread1 is the id of this thread in the block
 	int thread1 = threadIdx.x * blockDim.y + threadIdx.y;
 	maxWaveSpeed[thread1] = localMaxWaveSpeed;
 
