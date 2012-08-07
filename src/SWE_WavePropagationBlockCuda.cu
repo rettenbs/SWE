@@ -236,7 +236,7 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
 		hNetUpdatesAboveD,
 		hvNetUpdatesBelowD,
 		hvNetUpdatesAboveD,
-		l_maximumWaveSpeeds,
+		l_maximumWaveSpeedsD,
 		nx,
 		ny,
 		1,
@@ -277,6 +277,23 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
 void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 	dim3 dimBlock(TILE_SIZE, TILE_SIZE);
 	dim3 dimGrid(nx/TILE_SIZE, ny/TILE_SIZE);
+
+	updateUnknownsKernel<<<dimBlock, dimGrid>>>(
+		hNetUpdatesLeftD, 
+		hNetUpdatesRightD,
+		huNetUpdatesLeftD,
+		huNetUpdatesRightD,
+		hNetUpdatesBelowD,
+		hNetUpdatesAboveD,
+    		hvNetUpdatesBelowD,
+		hvNetUpdatesAboveD,
+    		hd,
+		hud,
+		hvd,
+		getMaxTimestep()/nx,
+		getMaxTimestep()/ny,
+   		nx,
+		ny);
 
   // synchronize the copy layer for MPI communication
   #ifdef USEMPI

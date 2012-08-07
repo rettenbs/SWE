@@ -81,26 +81,28 @@ void computeNetUpdatesKernel(
     float* o_maximumWaveSpeeds,
     const int i_nX, const int i_nY,
     const int i_offsetX, const int i_offsetY,
-    const int i_blockOffSetX, const int i_blockOffSetY
+    const int i_blockOffsetX, const int i_blockOffsetY
 ) {
 	int i = blockIdx.x * TILE_SIZE + threadIdx.x;
 	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
 
 	T netUpdates[5];
-	int oneDPosition = computeOneDPositionKernel(i, j, i_nY);
+	int oneDPosition = computeOneDPositionKernel(i + i_offsetX + i_blockOffsetX,
+		 j + i_offsetY + i_blockOffsetY,
+		 i_nY + 2);
 
 	fWaveComputeNetUpdates(G,
-		i_h[oneDPosition - i_nY],
+		i_h[oneDPosition - i_nY - 2],
 		i_h[oneDPosition],
-		i_hu[oneDPosition - i_nY],
+		i_hu[oneDPosition - i_nY - 2],
 		i_hu[oneDPosition],
-		i_b[oneDPosition - i_nY],
+		i_b[oneDPosition - i_nY - 2],
 		i_b[oneDPosition],
 		netUpdates);
 
-	o_hNetUpdatesLeftD[oneDPosition] = netUpdates[0];
+	o_hNetUpdatesLeftD[oneDPosition - i_nY - 2] = netUpdates[0];
 	o_hNetUpdatesRightD[oneDPosition] = netUpdates[1];
-	o_huNetUpdatesLeftD[oneDPosition] = netUpdates[2];
+	o_huNetUpdatesLeftD[oneDPosition - i_nY - 2] = netUpdates[2];
 	o_huNetUpdatesRightD[oneDPosition] = netUpdates[3];
 	o_maximumWaveSpeeds[oneDPosition] = netUpdates[4];
 
@@ -113,9 +115,9 @@ void computeNetUpdatesKernel(
 		i_b[oneDPosition],
 		netUpdates);
 
-	o_hNetUpdatesBelowD[oneDPosition] = netUpdates[0];
+	o_hNetUpdatesBelowD[oneDPosition - 1] = netUpdates[0];
 	o_hNetUpdatesAboveD[oneDPosition] = netUpdates[1];
-	o_hvNetUpdatesBelowD[oneDPosition] = netUpdates[2];
+	o_hvNetUpdatesBelowD[oneDPosition - 1] = netUpdates[2];
 	o_hvNetUpdatesAboveD[oneDPosition] = netUpdates[3];
 	o_maximumWaveSpeeds[oneDPosition] = MAX(o_maximumWaveSpeeds[oneDPosition], netUpdates[4]);
 }
@@ -152,16 +154,17 @@ void updateUnknownsKernel(
 	int i = blockIdx.x * TILE_SIZE + threadIdx.x;
 	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
 
-	int oneDPosition = computeOneDPositionKernel(i, j, i_nY);
+	// TODO I think we also need the blockOffset here ...
+	int oneDPosition = computeOneDPositionKernel(i, j, i_nY + 2);
 
-	io_h[oneDPosition] -= i_updateWidthX * (i_hNetUpdatesRightD[oneDPosition - i_nY - 1]
-			+ i_hNetUpdatesLeftD[oneDPosition - 1])
-		+ i_updateWidthY * (i_hNetUpdatesAboveD[oneDPosition - i_nY - 1]
-			+ i_hNetUpdatesBelowD[oneDPosition - i_nY]);
-	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[oneDPosition - i_nY - 1]
-		+ i_huNetUpdatesLeftD[oneDPosition - 1]);
-	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[oneDPosition - i_nY - 1]
-		+ i_hvNetUpdatesBelowD[oneDPosition - i_nY]);
+	io_h[oneDPosition] -= i_updateWidthX * (i_hNetUpdatesRightD[oneDPosition - i_nY - 2]
+			+ i_hNetUpdatesLeftD[oneDPosition])
+		+ i_updateWidthY * (i_hNetUpdatesAboveD[oneDPosition - i_nY - 2]
+			+ i_hNetUpdatesBelowD[oneDPosition]);
+	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[oneDPosition - i_nY - 2]
+		+ i_huNetUpdatesLeftD[oneDPosition]);
+	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[oneDPosition - i_nY - 2]
+		+ i_hvNetUpdatesBelowD[oneDPosition]);
 }
 
 /**
