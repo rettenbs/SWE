@@ -33,7 +33,6 @@
 
 #include "solvers/FWaveCuda.h"
 
-#define MAX(a,b) (a > b ? a : b)
 #define G 9.81
 
 /**
@@ -96,7 +95,8 @@ void computeNetUpdatesKernel(
 	int oneDPosition = computeOneDPositionKernel(i + i_offsetX + i_blockOffsetX,
 		 j + i_offsetY + i_blockOffsetY,
 		 i_nY + 2);
-	int maxWaveSpeedPos = computeOneDPositionKernel(i, j, i_nY+1);
+	T localMaxWaveSpeed; // local maximum wave speed
+	__shared__ T maxWaveSpeed[TILE_SIZE * TILE_SIZE]; // maximum wave speeds for this block
 
 	// Returns the values of net updates in T netUpdates[5] with values
 	// corresponding to ("h_left","h_right","hu_left","hu_right","MaxWaveSpeed").
@@ -113,7 +113,7 @@ void computeNetUpdatesKernel(
 	o_hNetUpdatesRightD[oneDPosition] = netUpdates[1];
 	o_huNetUpdatesLeftD[oneDPosition - i_nY - 2] = netUpdates[2];
 	o_huNetUpdatesRightD[oneDPosition] = netUpdates[3];
-	o_maximumWaveSpeeds[maxWaveSpeedPos] = netUpdates[4];
+	localMaxWaveSpeed = netUpdates[4];
 
 	fWaveComputeNetUpdates(G,
 		i_h[oneDPosition - 1],
@@ -128,7 +128,43 @@ void computeNetUpdatesKernel(
 	o_hNetUpdatesAboveD[oneDPosition] = netUpdates[1];
 	o_hvNetUpdatesBelowD[oneDPosition - 1] = netUpdates[2];
 	o_hvNetUpdatesAboveD[oneDPosition] = netUpdates[3];
-	o_maximumWaveSpeeds[maxWaveSpeedPos] = MAX(o_maximumWaveSpeeds[maxWaveSpeedPos], netUpdates[4]);
+	if (netUpdates[4] > localMaxWaveSpeed)
+		localMaxWaveSpeed = netUpdates[4];
+
+	maxWaveSpeed[threadIdx.x * TILE_SIZE + threadIdx.y] = localMaxWaveSpeed;
+
+	__syncthreads();
+
+	// Calculate the maximum of this block
+	// taken from https://www.sharcnet.ca/help/index.php/CUDA_tips_and_tricks
+	int nTotalThreads = TILE_SIZE * TILE_SIZE;
+
+	while (nTotalThreads > 1)
+	{
+ 		int halfPoint = (nTotalThreads >> 1);	// divide by two
+
+		// only the first half of the threads will be active. 
+		int thread1 = threadIdx.x * TILE_SIZE + threadIdx.y;
+
+  		if (thread1 < halfPoint)
+  		{
+   			int thread2 = thread1 + halfPoint;
+ 
+    			// Get the shared value stored by another thread
+ 
+    			T temp = maxWaveSpeed[thread2];
+    			if (temp > maxWaveSpeed[thread1]) 
+       				maxWaveSpeed[thread1] = temp;			
+ 
+ 		}
+  		
+		__syncthreads();
+ 
+  		// Reducing the binary tree size by two:
+  		nTotalThreads = halfPoint;
+	}
+
+	o_maximumWaveSpeeds[blockIdx.x * gridDim.y + blockIdx.y] = maxWaveSpeed[0];
 }
 
 /**

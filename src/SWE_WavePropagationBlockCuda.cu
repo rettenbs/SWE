@@ -215,7 +215,8 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
   float* l_maximumWaveSpeedsD;
 
   // size of the maximum wave speed array (dimension of the grid + ghost layers, without the top right block), sizeof(float) not included
-  int l_sizeMaxWaveSpeeds = ((dimGrid.x+1)*(dimGrid.y+1)-1);
+  //int l_sizeMaxWaveSpeeds = ((dimGrid.x+1)*(dimGrid.y+1)-1);
+  int l_sizeMaxWaveSpeeds = dimGrid.x * dimGrid.y;
   cudaMalloc((void**)&l_maximumWaveSpeedsD, (l_sizeMaxWaveSpeeds*sizeof(float)) );
 
 
@@ -223,7 +224,7 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
    * Compute the net updates for the 'main part and the two 'boundary' parts.
    */
 
-	computeNetUpdatesKernel<<<dimBlock, dimGrid>>>(
+	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
 		hd,
 		hud,
 		hvd,
@@ -252,6 +253,7 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
    */
   // Thrust pointer to the device array
   thrust::device_ptr<float> l_thrustDevicePointer(l_maximumWaveSpeedsD);
+  //thrust::device_ptr<float> l_thrustDevicePointer = thrust::device_pointer_cast(l_maximumWaveSpeedsD);
 
   // use Thrusts max_element-function for the maximum reduction
   thrust::device_ptr<float> l_thrustDevicePointerMax = thrust::max_element(l_thrustDevicePointer, l_thrustDevicePointer+l_sizeMaxWaveSpeeds);
@@ -278,7 +280,7 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 	dim3 dimBlock(TILE_SIZE, TILE_SIZE);
 	dim3 dimGrid(nx/TILE_SIZE, ny/TILE_SIZE);
 
-	updateUnknownsKernel<<<dimBlock, dimGrid>>>(
+	updateUnknownsKernel<<<dimGrid, dimBlock>>>(
 		hNetUpdatesLeftD, 
 		hNetUpdatesRightD,
 		huNetUpdatesLeftD,
