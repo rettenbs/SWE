@@ -90,6 +90,7 @@ void computeNetUpdatesKernel(
 	int oneDPosition = computeOneDPositionKernel(i + i_offsetX + i_blockOffsetX,
 		 j + i_offsetY + i_blockOffsetY,
 		 i_nY + 2);
+	int maxWaveSpeedPos = computeOneDPositionKernel(i, j, i_nY+1);
 
 	fWaveComputeNetUpdates(G,
 		i_h[oneDPosition - i_nY - 2],
@@ -104,7 +105,7 @@ void computeNetUpdatesKernel(
 	o_hNetUpdatesRightD[oneDPosition] = netUpdates[1];
 	o_huNetUpdatesLeftD[oneDPosition - i_nY - 2] = netUpdates[2];
 	o_huNetUpdatesRightD[oneDPosition] = netUpdates[3];
-	o_maximumWaveSpeeds[oneDPosition] = netUpdates[4];
+	o_maximumWaveSpeeds[maxWaveSpeedPos] = netUpdates[4];
 
 	fWaveComputeNetUpdates(G,
 		i_h[oneDPosition - 1],
@@ -119,7 +120,7 @@ void computeNetUpdatesKernel(
 	o_hNetUpdatesAboveD[oneDPosition] = netUpdates[1];
 	o_hvNetUpdatesBelowD[oneDPosition - 1] = netUpdates[2];
 	o_hvNetUpdatesAboveD[oneDPosition] = netUpdates[3];
-	o_maximumWaveSpeeds[oneDPosition] = MAX(o_maximumWaveSpeeds[oneDPosition], netUpdates[4]);
+	o_maximumWaveSpeeds[maxWaveSpeedPos] = MAX(o_maximumWaveSpeeds[maxWaveSpeedPos], netUpdates[4]);
 }
 
 /**
