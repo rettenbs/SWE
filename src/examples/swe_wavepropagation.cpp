@@ -126,8 +126,8 @@ int main( int argc, char** argv ) {
   simulationArea[2] = -2450000;
   simulationArea[3] = 1450000;
 
-  SWE_AsagiScenario l_scenario( "/work/breuera/workspace/geo_information/output/tohoku_gebco_ucsb3_500m_hawaii_bath.nc",
-                                "/work/breuera/workspace/geo_information/output/tohoku_gebco_ucsb3_500m_hawaii_displ.nc",
+  SWE_AsagiScenario l_scenario( "/tmp/data_SWE/data/tohoku_gebco_ucsb3_500m_hawaii_bath.nc",
+                                "/tmp/data_SWE/data/tohoku_gebco_ucsb3_500m_hawaii_displ.nc",
                                 (float) 28800., simulationArea);
   #else
   // create a simple artificial scenario
