@@ -128,19 +128,10 @@ void computeNetUpdatesKernel(
 		i_b[oneDPosition + 1],
 		netUpdates);
 
-<<<<<<< HEAD
-	printf("Test %i\n", netUpdatePosition);
-	o_hNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[0];
-	o_hNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[1];
-	o_hvNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[2];
-	o_hvNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[3];
-=======
-	//printf("netupdate: %i, %i, %i, %i, %i\n", netUpdatePosition, i_offsetX, i_offsetY, i_nX, i_nY);
 	o_hNetUpdatesBelowD[netUpdatePosition] = netUpdates[0];
 	o_hNetUpdatesAboveD[netUpdatePosition] = netUpdates[1];
 	o_hvNetUpdatesBelowD[netUpdatePosition] = netUpdates[2];
 	o_hvNetUpdatesAboveD[netUpdatePosition] = netUpdates[3];
->>>>>>> 23677d979f33899fabb40b22601ad29e615406a1
 	if (netUpdates[4] > localMaxWaveSpeed)
 		localMaxWaveSpeed = netUpdates[4];
 
