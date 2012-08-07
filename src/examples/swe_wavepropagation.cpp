@@ -214,12 +214,7 @@ int main( int argc, char** argv ) {
     // reset the cpu clock
     s_sweLogger.resetCpuClockToCurrentTime();
 
-// BEGIN DEBUG
-// Debug:  remove while loop so sim saves state to HDD on every iteration
-//
-
-    // do time steps until next checkpoint is reached
-//DBG    while( l_t < l_checkPoints[c] ) {
+    while( l_t < l_checkPoints[c] ) {
       // set values in ghost cells:
       l_wavePropgationBlock.setGhostLayer();
       
@@ -242,8 +237,7 @@ int main( int argc, char** argv ) {
 
       // print the current simulation time
       s_sweLogger.printSimulationTime(l_t, l_maxTimeStepWidth);
-//DBG    }
-// END DEBUG
+    }
 
     // update the cpu time in the logger
     s_sweLogger.updateCpuTime();

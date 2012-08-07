@@ -128,6 +128,7 @@ void computeNetUpdatesKernel(
 		i_b[oneDPosition],
 		netUpdates);
 
+	printf("Test %i\n", netUpdatePosition);
 	o_hNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[0];
 	o_hNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[1];
 	o_hvNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[2];
