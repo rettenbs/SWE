@@ -351,8 +351,7 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 	dim3 dimBlock(TILE_SIZE, TILE_SIZE);
 	dim3 dimGrid(nx/TILE_SIZE, ny/TILE_SIZE);
 
-
-
+/*
 	updateUnknownsKernel<<<dimGrid, dimBlock>>>(
 		hNetUpdatesLeftD,
 		hNetUpdatesRightD,
@@ -365,12 +364,12 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
     		hd,
 		hud,
 		hvd,
-		getMaxTimestep()/nx,
-		getMaxTimestep()/ny,
+		getMaxTimestep()/dx,
+		getMaxTimestep()/dy,
    		nx,
 		ny);
 
-/*
+*/
 	updateUnknownsCUBLAS(
 		hNetUpdatesLeftD,
 		hNetUpdatesRightD,
@@ -383,11 +382,11 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
     		hd,
 		hud,
 		hvd,
-		getMaxTimestep()/nx,
-		getMaxTimestep()/ny,
+		getMaxTimestep()/dx,
+		getMaxTimestep()/dy,
    		nx,
 		ny);
-*/
+
 
   // synchronize the copy layer for MPI communication
   #ifdef USEMPI

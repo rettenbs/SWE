@@ -240,46 +240,46 @@ void updateUnknownsCUBLAS(
 		// io_h[i][j] += ...
 		// - (dt/dx) * hNetUpdatesRight[i-1][j-1]
 		cublasSaxpy(cuhandle, i_nY, &dtdx,
-			    i_hNetUpdatesRightD +     (i_nY + 1)*(i - 1), 1,
+			    i_hNetUpdatesRightD + 1 + (i_nY + 1)*(i - 1), 1,
 			    io_h + 1 + (i_nY + 2)*i,			  1);
 
 		// - (dt/dx) * hNetUpdatesLeft[i][j-1]
-//		cublasSaxpy(cuhandle, i_nY, &dtdx,
-//			    i_hNetUpdatesLeftD  + 1 + (i_nY+1)*(i-1), 1,
-//			    io_h + 1 + (i_nY+1)*i,		      1);
+		cublasSaxpy(cuhandle, i_nY, &dtdx,
+			    i_hNetUpdatesLeftD  + 1 + (i_nY + 1)*i, 1,
+			    io_h + 1 + (i_nY + 2)*i,		    1);
 
 		// - (dt/dy) * hNetUpdatesAbove[i-1][j-1]
-//		cublasSaxpy(cuhandle, i_nY, &dtdy,
-//			    i_hNetUpdatesAboveD + 1 + (i_nY+1)*(i-1), 1,
-//			    io_h + 1 + (i_nY+1)*i,		      1);
+		cublasSaxpy(cuhandle, i_nY, &dtdy,
+			    i_hNetUpdatesAboveD  + (i_nY + 1)*i, 1,
+			    io_h + 1 + (i_nY + 2)*i,		      1);
 
 		// - (dt/dy) * hNetUpdatesBelow[i-1][j]
-//		cublasSaxpy(cuhandle, i_nY, &dtdy,
-//			    i_hNetUpdatesBelowD + (i_nY+1)*i, 1,
-//			    io_h + 1 + (i_nY+1)*i,	      1);
+		cublasSaxpy(cuhandle, i_nY, &dtdy,
+			    i_hNetUpdatesBelowD  + 1 + (i_nY + 1)*i, 1,
+			    io_h + 1 + (i_nY + 2)*i,	      1);
 
 		//=========================hu section=========================
 		// - (dt/dx) * huNetUpdatesRight[i-1][j-1]
-//		cublasSaxpy(cuhandle, i_nY, &dtdx,
-//			    i_huNetUpdatesRightD +     (i_nY+1)*(i-1), 1,
-//			    io_hu + 1 + (i_nY+1)*i,		       1);
+		cublasSaxpy(cuhandle, i_nY, &dtdx,
+			    i_huNetUpdatesRightD + 1 + (i_nY + 1)*(i - 1), 1,
+			    io_hu + 1 + (i_nY + 2)*i,		       1);
 
 		// - (dt/dx) * huNetUpdatesLeft[i][j-1]
-//		cublasSaxpy(cuhandle, i_nY, &dtdx,
-//			    i_huNetUpdatesLeftD  + 1 + (i_nY+1)*(i-1), 1,
-//			    io_hu + 1 + (i_nY+1)*i,		       1);
+		cublasSaxpy(cuhandle, i_nY, &dtdx,
+			    i_huNetUpdatesLeftD  + 1 + (i_nY + 1)*i, 1,
+			    io_hu + 1 + (i_nY + 2)*i,		       1);
 
 
 		//=========================hv section=========================
 		// - (dt/dy) * hvNetUpdatesAbove[i-1][j-1]
-//		cublasSaxpy(cuhandle, i_nY, &dtdy,
-//			    i_hvNetUpdatesAboveD +     (i_nY+1)*(i-1), 1,
-//			    io_hv + 1 + (i_nY+1)*i,		       1);
+		cublasSaxpy(cuhandle, i_nY, &dtdy,
+			    i_hvNetUpdatesAboveD  + (i_nY + 1)*i, 1,
+			    io_hv + 1 + (i_nY + 2)*i,		       1);
 
 		// - (dt/dy) * hvNetUpdatesBelow[i-1][j]);
-//		cublasSaxpy(cuhandle, i_nY, &dtdy,
-//			    i_hvNetUpdatesBelowD + (i_nY+1)*i, 1,
-//			    io_hv + 1 + (i_nY+1)*i,	       1);
+		cublasSaxpy(cuhandle, i_nY, &dtdy,
+			    i_hvNetUpdatesBelowD  + 1 + (i_nY + 1)*i, 1,
+			    io_hv + 1 + (i_nY + 2)*i,	       1);
 	}
 
 
@@ -308,20 +308,17 @@ void updateUnknownsKernel(
 	// Position in *NetUpdates*
 	int netUpdatePosition = computeOneDPositionKernel(i+1, j+1, i_nY + 1);
 
-	printf("i:%d, j:%d,  io_h pos: %d  net pos: %d\n",i,j,oneDPosition,netUpdatePosition - i_nY - 1);
+//	printf("i:%d, j:%d,  io_h pos: %d  net pos: %d\n",i,j,oneDPosition,netUpdatePosition - 1);
 	// h updates as the sum of x- and y- positions
 	io_h[oneDPosition] -=
-								//(i+1)*(i_nY+1) + (j+1) - (i_nY) - 1
-								//(i+1)*(i_nY+1) + (j+1) - (i_nY+1)
-								//( i )*(i_nY+1) + (j+1)
-                          i_updateWidthX * (i_hNetUpdatesRightD[netUpdatePosition - i_nY - 1]); // + i_hNetUpdatesLeftD[netUpdatePosition])
-//			+ i_updateWidthY * (i_hNetUpdatesAboveD[netUpdatePosition - 1] + i_hNetUpdatesBelowD[netUpdatePosition]);
+                          i_updateWidthX * (i_hNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_hNetUpdatesLeftD[netUpdatePosition])
+			+ i_updateWidthY * (i_hNetUpdatesAboveD[netUpdatePosition - 1] + i_hNetUpdatesBelowD[netUpdatePosition]);
 
 	// hu contains only x component data, so it updates from the left and right
-//	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_huNetUpdatesLeftD[netUpdatePosition]);
+	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_huNetUpdatesLeftD[netUpdatePosition]);
 
 	// hv contains ony y component data, so it updates from the top and bottom
-//	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[netUpdatePosition - 1] + i_hvNetUpdatesBelowD[netUpdatePosition]);
+	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[netUpdatePosition - 1] + i_hvNetUpdatesBelowD[netUpdatePosition]);
 }
 
 /**
