@@ -196,7 +196,10 @@ void computeNetUpdatesKernel(
  * updateUnknownsCUBLAS
  * reexpression of updateUnknownsKernel as a sequence of cublasSaxpy().
  * The purpose here is to take advantage of high-performance CUBLAS calls
- * in order to further disguise the cost of performing these small transactions
+ * in order to further disguise the cost of performing these small transactions.
+ *
+ * Please note that I use the index offset convention where if
+ * h[i] = hnew[i+1], I write h[i-1] = hnew[i] (I find this easier to control here).
  *
  * CUDA philosophy:  think locally, act sequentially
  */
@@ -238,40 +241,59 @@ void updateUnknownsCUBLAS(
 		// =========================h section=========================
 		// - (dt/dx) * hNetUpdatesRight[i-1][j-1] (just row i)
 		// +1 shifts over a column, (i_ny + 1) shifts down a row, which has i_ny+1 elements, by construction.
-		custat = cublasSaxpy(cuhandle, i_ny, &dtdx, i_hNetUpdatesRightD, 1, io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		custat = cublasSaxpy(cuhandle, i_ny, &dtdx,
+				     i_hNetUpdatesRightD,                  1,
+				     io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+
 		if(custat != CUBLAS_STATUS_SUCCESS) {
 			printf("updateUnknownsCUBLAS failure in h update 0!\n");
 		}
 
 		// - (dt/dx) * hNetUpdatesLeft[i][j-1]
-		cublasSaxpy(cuhandle, i_ny, &dtdx, i_hNetUpdatesLeftD,  1, io_h + 1 + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdx,
+			    i_hNetUpdatesLeftD,      1,
+			    io_h + 1 + (i_ny + 1)*i, 1);
 
 		// - (dt/dy) * hNetUpdatesAbove[i-1][j-1]
-		cublasSaxpy(cuhandle, i_ny, &dtdy, i_hNetUpdatesAboveD, 1, io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdy,
+			    i_hNetUpdatesAboveD,                  1,
+			    io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
 
 		// - (dt/dy) * hNetUpdatesBelow[i-1][j]
-		cublasSaxpy(cuhandle, i_ny, &dtdy, i_hNetUpdatesBelowD, 1, io_h + (i_ny + 1) + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdy,
+			    i_hNetUpdatesBelowD,              1,
+			    io_h + (i_ny + 1) + (i_ny + 1)*i, 1);
 
 		//=========================hu section=========================
 		// - (dt/dx) * huNetUpdatesRight[i-1][j-1]
-		custat = cublasSaxpy(cuhandle, i_ny, &dtdx, i_huNetUpdatesRightD, 1, io_hu + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		custat = cublasSaxpy(cuhandle, i_ny, &dtdx,
+				     i_huNetUpdatesRightD,                  1,
+				     io_hu + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+
 		if(custat != CUBLAS_STATUS_SUCCESS) {
 			printf("updateUnknownsCUBLAS failure in hu update 0!\n");
 		}
 
 		// - (dt/dx) * huNetUpdatesLeft[i][j-1]
-		cublasSaxpy(cuhandle, i_ny, &dtdx, i_huNetUpdatesLeftD,  1, io_hu + 1 + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdx,
+			    i_huNetUpdatesLeftD,      1,
+			    io_hu + 1 + (i_ny + 1)*i, 1);
 
 
 		//=========================hv section=========================
 		// - (dt/dy) * hvNetUpdatesAbove[i-1][j-1]
-		custat = cublasSaxpy(cuhandle, i_ny, &dtdy, i_hvNetUpdatesAboveD, 1, io_hv + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		custat = cublasSaxpy(cuhandle, i_ny, &dtdy,
+				     i_hvNetUpdatesAboveD,                  1,
+				     io_hv + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+
 		if(custat != CUBLAS_STATUS_SUCCESS) {
 			printf("updateUnknownsCUBLAS failure in hv update 0!\n");
 		}
 
 		// - (dt/dy) * hvNetUpdatesBelow[i-1][j]);
-		cublasSaxpy(cuhandle, i_ny, &dtdy, i_hvNetUpdatesBelowD, 1, io_hv + (i_ny + 1) + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdy,
+			    i_hvNetUpdatesBelowD,              1,
+			    io_hv + (i_ny + 1) + (i_ny + 1)*i, 1);
 
 	}
 
