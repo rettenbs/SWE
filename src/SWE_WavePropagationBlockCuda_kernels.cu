@@ -230,17 +230,25 @@ void updateUnknownsCUBLAS(
 	 // Error checking and CUBLAS configuration
 	 cublasHandle_t cuhandle;
 	 cublasStatus_t custat;
+	 cudaError_t cudastat;
 	 custat = cublasCreate(&cuhandle);
 	 if(custat != CUBLAS_STATUS_SUCCESS) printf("Something went wrong initializing the CUBLAS context!\n");
 
 	 float dtdx = -i_updateWidthX;
 	 float dtdy = -i_updateWidthY;
+	 float dotfloat = 11.0;
+	 float negone = -1.0f;
 
 
-	for(int i = 0; i < i_nx; i++) {
+	 float* d_testarray;
+	 cudaMalloc((void**)&d_testarray, (i_ny+1)*(i_nx+1)*sizeof(float));
+
+
+	 for(int i = 0; i < i_nx; i++) {
 		// =========================h section=========================
 		// - (dt/dx) * hNetUpdatesRight[i-1][j-1] (just row i)
 		// +1 shifts over a column, (i_ny + 1) shifts down a row, which has i_ny+1 elements, by construction.
+
 		custat = cublasSaxpy(cuhandle, i_ny, &dtdx,
 				     i_hNetUpdatesRightD,                  1,
 				     io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
@@ -295,10 +303,14 @@ void updateUnknownsCUBLAS(
 			    i_hvNetUpdatesBelowD,              1,
 			    io_hv + (i_ny + 1) + (i_ny + 1)*i, 1);
 
+	    cudaThreadSynchronize();
+
 	}
+
 
 	custat = cublasDestroy(cuhandle);
 
+	cudaFree(d_testarray);
 
 
 }

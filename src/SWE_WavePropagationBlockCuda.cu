@@ -369,8 +369,8 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 		getMaxTimestep()/ny,
    		nx,
 		ny);
-*/
 
+*/
 	updateUnknownsCUBLAS(
 		hNetUpdatesLeftD,
 		hNetUpdatesRightD,
