@@ -76,7 +76,7 @@ void tryCUDA(cudaError_t err, const char *msg)
  *
  * flux terms are defined for edges with indices [0,..,nx]*[1,..,ny]
  * or [1,..,nx]*[0,..,ny] (for horizontal/vertical edges)
- * Flux term with index (i,j) is located on the edge between 
+ * Flux term with index (i,j) is located on the edge between
  * cells with index (i,j) and (i+1,j) or (i,j+1)
  *
  * bathymetry source terms are defined for cells with indices [1,..,nx]*[1,..,ny]
@@ -92,6 +92,7 @@ SWE_BlockCUDA::SWE_BlockCUDA(float _offsetX, float _offsetY, const int i_cudaDev
   s_sweLogger.setProcessRank(i_cudaDevice);
 
   cudaSetDevice(4);
+  cublasInit();
 
   // check for a valid CUDA device id
   #ifndef NDEBUG
@@ -103,23 +104,23 @@ SWE_BlockCUDA::SWE_BlockCUDA(float _offsetX, float _offsetY, const int i_cudaDev
   printDeviceInformation();
 
   if (nx % TILE_SIZE != 0) {
-    cout << "WARNING: nx not a multiple of TILE_SIZE  -> will lead to crashes!" 
+    cout << "WARNING: nx not a multiple of TILE_SIZE  -> will lead to crashes!"
          << endl << flush;
   };
   if (ny % TILE_SIZE != 0) {
-    cout << "WARNING: ny not a multiple of TILE_SIZE  -> will lead to crashes!" 
+    cout << "WARNING: ny not a multiple of TILE_SIZE  -> will lead to crashes!"
          << endl << flush;
   };
 
   int size = (nx+2)*(ny+2)*sizeof(float);
   // allocate CUDA memory for unknows h,hu,hv and bathymetry b
-  cudaMalloc((void**)&hd, size); 
+  cudaMalloc((void**)&hd, size);
      checkCUDAError("allocate device memory for h");
   cudaMalloc((void**)&hud, size);
      checkCUDAError("allocate device memory for hu");
   cudaMalloc((void**)&hvd, size);
      checkCUDAError("allocate device memory for hv");
-  cudaMalloc((void**)&bd, size); 
+  cudaMalloc((void**)&bd, size);
      checkCUDAError("allocate device memory for bd");
 
   // allocate consecutive memory for 2 columns with three unknowns each
@@ -128,7 +129,7 @@ SWE_BlockCUDA::SWE_BlockCUDA(float _offsetX, float _offsetY, const int i_cudaDev
   bottomLayer = new float[6*size];
   bottomGhostLayer = new SWE_Block1D( bottomLayer, bottomLayer+size, bottomLayer+(2*size), size );
   bottomCopyLayer  = new SWE_Block1D( bottomLayer+(3*size), bottomLayer+(4*size), bottomLayer+(5*size), size );
-  
+
   // same for top boundary:
   topLayer = new float[6*size];
   topGhostLayer = new SWE_Block1D( topLayer, topLayer+size, topLayer+(2*size), size );
@@ -140,6 +141,17 @@ SWE_BlockCUDA::SWE_BlockCUDA(float _offsetX, float _offsetY, const int i_cudaDev
   cudaMalloc((void**)&topLayerDevice, 6*size*sizeof(float));
      checkCUDAError("allocate device memory for top copy/ghost layer");
 
+  // Check to make sure CUBLAS is actually initialized:
+  cublasStatus cu_stat;
+  float* d_testA;
+  cu_stat = cublasAlloc(1, sizeof(float), (void**)&d_testA);
+  if(cu_stat != CUBLAS_STATUS_SUCCESS) {
+	  printf("CUBLAS might not be initialized! WARNING!\n");
+  } else {
+	  printf("CUBLAS initialized!\n");
+  }
+
+  cublasFree(d_testA);
 }
 
 /**
@@ -148,14 +160,14 @@ SWE_BlockCUDA::SWE_BlockCUDA(float _offsetX, float _offsetY, const int i_cudaDev
 SWE_BlockCUDA::~SWE_BlockCUDA() {
   cudaFree(hd); cudaFree(hud); cudaFree(hvd); cudaFree(bd);
 //  cudaFree(maxhd); cudaFree(maxvd);
-  
+
   // free memory for copy/ghost layers
   delete bottomLayer;
   delete topLayer;
-  
+
   cudaFree(bottomLayerDevice);
   cudaFree(topLayerDevice);
-  
+
 }
 
 //==================================================================
@@ -163,12 +175,12 @@ SWE_BlockCUDA::~SWE_BlockCUDA() {
 //==================================================================
 
 /**
- * set the values of all ghost cells depending on the specifed 
+ * set the values of all ghost cells depending on the specifed
  * boundary conditions
  */
 void SWE_BlockCUDA::setBoundaryConditions() {
 #ifdef DBG
- cout << "Call kernel to compute h in ghost layer corner (for visualisation only) " 
+ cout << "Call kernel to compute h in ghost layer corner (for visualisation only) "
       << flush << endl;
 #endif
   // Fill ghost layer corner cells
@@ -181,7 +193,7 @@ void SWE_BlockCUDA::setBoundaryConditions() {
 //   synchDischargeAfterWrite();
 
   if (boundary[BND_LEFT] == PASSIVE || boundary[BND_LEFT] == CONNECT) {
-     // nothing to be done: 
+     // nothing to be done:
      // ghost values are copied by SWE_BlockCUDA::synchGhostLayerAfterWrite(...)
   }
   else {
@@ -192,7 +204,7 @@ void SWE_BlockCUDA::setBoundaryConditions() {
   };
 
   if (boundary[BND_RIGHT] == PASSIVE || boundary[BND_RIGHT] == CONNECT) {
-     // nothing to be done: 
+     // nothing to be done:
      // ghost values are copied by SWE_BlockCUDA::synchGhostLayerAfterWrite(...)
   }
   else {
@@ -215,7 +227,7 @@ void SWE_BlockCUDA::setBoundaryConditions() {
         bottomGhostLayer->hv[i] = neighbour[BND_BOTTOM]->hv[i];
       };
     }
-    case PASSIVE: /* also executed for case CONNECT */ 
+    case PASSIVE: /* also executed for case CONNECT */
     {
       // copy ghost layer data from buffer bottomLayerDevice
       // into bottom ghost layer of unknowns
@@ -225,7 +237,7 @@ void SWE_BlockCUDA::setBoundaryConditions() {
          hd,hud,hvd,bottomLayerDevice,nx,ny);
       break;
     }
-    default: 
+    default:
     {
       // set simple boundary conditions (OUTFLOW, WALL) by resp. kernel:
       dim3 dimBlock(TILE_SIZE,1);
@@ -256,8 +268,8 @@ void SWE_BlockCUDA::setBoundaryConditions() {
       break;
     }
     default:
-    { 
-      // set simple boundary conditions (OUTFLOW, WALL) by resp. kernel: 
+    {
+      // set simple boundary conditions (OUTFLOW, WALL) by resp. kernel:
       dim3 dimBlock(TILE_SIZE,1);
       dim3 dimGrid(nx/TILE_SIZE,1);
       kernelTopBoundary<<<dimGrid,dimBlock>>>(
@@ -267,8 +279,8 @@ void SWE_BlockCUDA::setBoundaryConditions() {
 }
 
 /**
- * synchronise the ghost layer content of h, hu, and hv in main memory 
- * with device memory and auxiliary data structures, i.e. transfer 
+ * synchronise the ghost layer content of h, hu, and hv in main memory
+ * with device memory and auxiliary data structures, i.e. transfer
  * memory from main/auxiliary memory into device memory
  */
 void SWE_BlockCUDA::synchGhostLayerAfterWrite() {
@@ -306,7 +318,7 @@ void SWE_BlockCUDA::synchGhostLayerAfterWrite() {
   cout << "Set bottom passive boundary" << endl;
   cout << " * transfer " << 3*(nx+2)*sizeof(float) << " bytes." << endl;
 #endif
-     // transfer bottom ghost layer 
+     // transfer bottom ghost layer
      // (3 arrays - h, hu, hv - of nx+2 floats, consecutive in memory)
      cudaMemcpy(bottomLayerDevice, bottomLayer, 3*(nx+2)*sizeof(float), cudaMemcpyHostToDevice);
      checkCUDAError("bottom ghost layer not transferred to device");
@@ -327,7 +339,7 @@ void SWE_BlockCUDA::synchGhostLayerAfterWrite() {
 
 /**
  * Update (for heterogeneous computing) variables h, hu, hv in copy layers
- * before an external access to the unknowns 
+ * before an external access to the unknowns
  * (only required for PASSIVE and CONNECT boundaries)
  * - copy (up-to-date) content from device memory into main memory
  */
@@ -372,7 +384,7 @@ void SWE_BlockCUDA::synchCopyLayerBeforeRead() {
      dim3 dimGrid(nx/TILE_SIZE,1);
      kernelTopCopyLayer<<<dimGrid,dimBlock>>>(
         hd,hud,hvd,topLayerDevice+size,nx,ny);
-     
+
      cudaMemcpy(topLayer+size, topLayerDevice+size, size*sizeof(float), cudaMemcpyDeviceToHost);
      checkCUDAError("top copy layer not transferred from device");
   };
@@ -387,7 +399,7 @@ void SWE_BlockCUDA::synchCopyLayerBeforeRead() {
 SWE_Block1D* SWE_BlockCUDA::registerCopyLayer(BoundaryEdge edge){
 
   // for TOP and BOTTOM layer, the implementation is identical to that in SWE_Block
-  // for LEFT and RIGHT layer, separate layers are used that avoid strided copies 
+  // for LEFT and RIGHT layer, separate layers are used that avoid strided copies
   // when transferring memory between host and device memory
   switch (edge) {
     case BND_LEFT:
@@ -421,19 +433,19 @@ SWE_Block1D* SWE_BlockCUDA::registerCopyLayer(BoundaryEdge edge){
 }
 
 /**
- * "grab" the ghost layer at the specific boundary in order to set boundary values 
- * in this ghost layer externally. 
- * The boundary conditions at the respective ghost layer is set to PASSIVE, 
- * such that the grabbing program component is responsible to provide correct 
- * values in the ghost layer, for example by receiving data from a remote 
- * copy layer via MPI communication. 
+ * "grab" the ghost layer at the specific boundary in order to set boundary values
+ * in this ghost layer externally.
+ * The boundary conditions at the respective ghost layer is set to PASSIVE,
+ * such that the grabbing program component is responsible to provide correct
+ * values in the ghost layer, for example by receiving data from a remote
+ * copy layer via MPI communication.
  * @param	specified edge
  * @return	a SWE_Block1D object that contains row variables h, hu, and hv
  */
 SWE_Block1D* SWE_BlockCUDA::grabGhostLayer(BoundaryEdge edge){
 
   // for TOP and BOTTOM layer, the implementation is identical to that in SWE_Block
-  // for LEFT and RIGHT layer, separate layers are used that avoid strided copies 
+  // for LEFT and RIGHT layer, separate layers are used that avoid strided copies
   // when transferring memory between host and device memory
   boundary[edge] = PASSIVE;
   switch (edge) {
@@ -487,11 +499,11 @@ void SWE_BlockCUDA::printDeviceInformation() const {
 
 
 //==================================================================
-// protected member functions for memory model: 
-// in case of temporary variables (especial in non-local memory, for 
-// example on accelerators), the main variables h, hu, hv, and b 
+// protected member functions for memory model:
+// in case of temporary variables (especial in non-local memory, for
+// example on accelerators), the main variables h, hu, hv, and b
 // are not necessarily updated after each time step.
-// The following methods are called to synchronise before or after 
+// The following methods are called to synchronise before or after
 // external read or write to the variables.
 //==================================================================
 
@@ -505,7 +517,7 @@ void SWE_BlockCUDA::synchAfterWrite() {
   synchDischargeAfterWrite();
   synchBathymetryAfterWrite();
 
-  // update the auxiliary data structures for copy and ghost layers 
+  // update the auxiliary data structures for copy and ghost layers
   // at bottom (and top, see below) boundaries
   // -> only required for PASSIVE and CONNECT boundaries
   if (boundary[BND_BOTTOM] == PASSIVE || boundary[BND_BOTTOM] == CONNECT) {
@@ -519,7 +531,7 @@ void SWE_BlockCUDA::synchAfterWrite() {
        bottomCopyLayer->hv[i] = hv[i][1];
      };
   };
-  
+
   if (boundary[BND_TOP] == PASSIVE || boundary[BND_TOP] == CONNECT) {
      // transfer bottom ghost and copy layer to extra SWE_Block1D
      for(int i=0; i<=nx+1; i++) {
@@ -573,7 +585,7 @@ void SWE_BlockCUDA::synchBathymetryAfterWrite() {
   int size = (nx+2)*(ny+2)*sizeof(float);
   cudaMemcpy(bd,b.elemVector(), size, cudaMemcpyHostToDevice);
      checkCUDAError("memory of b not transferred");
-  
+
 //  computeBathymetrySources();
 }
 
@@ -587,32 +599,32 @@ void SWE_BlockCUDA::synchBeforeRead() {
    synchBathymetryBeforeRead();
 
 /* --- the following part is excluded:
-   --- it should not be necessary to update the auxiliary data structures 
-   --- for top/bottom copy/ghost layers in main memory: these need to be 
-   --- kept consistent by class SWE_BlockCUDA (in particular, they cannot be 
+   --- it should not be necessary to update the auxiliary data structures
+   --- for top/bottom copy/ghost layers in main memory: these need to be
+   --- kept consistent by class SWE_BlockCUDA (in particular, they cannot be
    --- changed externally).
-   --- */  
+   --- */
 //   if (boundary[BND_BOTTOM] == PASSIVE || boundary[BND_BOTTOM] == CONNECT) {
 //      // transfer bottom ghost and copy layer to extra SWE_Block1D
 //      for(int i=0; i<=nx+1; i++) {
-//        h[i][0] = bottomGhostLayer->h[i]; 
+//        h[i][0] = bottomGhostLayer->h[i];
 //        hu[i][0]= bottomGhostLayer->hu[i];
 //        hv[i][0]= bottomGhostLayer->hv[i];
-//        h[i][1] = bottomCopyLayer->h[i];  
-//        hu[i][1]= bottomCopyLayer->hu[i]; 
-//        hv[i][1]= bottomCopyLayer->hv[i]; 
+//        h[i][1] = bottomCopyLayer->h[i];
+//        hu[i][1]= bottomCopyLayer->hu[i];
+//        hv[i][1]= bottomCopyLayer->hv[i];
 //      };
 //   };
-//   
+//
 //   if (boundary[BND_TOP] == PASSIVE || boundary[BND_TOP] == CONNECT) {
 //      // transfer bottom ghost and copy layer to extra SWE_Block1D
 //      for(int i=0; i<=nx+1; i++) {
-//        h[i][ny+1]  = topGhostLayer->h[i]; 
+//        h[i][ny+1]  = topGhostLayer->h[i];
 //        hu[i][ny+1] = topGhostLayer->hu[i];
 //        hv[i][ny+1] = topGhostLayer->hv[i];
-//        h[i][ny]  = topCopyLayer->h[i];  
-//        hu[i][ny] = topCopyLayer->hu[i]; 
-//        hv[i][ny] = topCopyLayer->hv[i]; 
+//        h[i][ny]  = topCopyLayer->h[i];
+//        hu[i][ny] = topCopyLayer->hu[i];
+//        hv[i][ny] = topCopyLayer->hv[i];
 //      };
 //   };
 
@@ -708,27 +720,27 @@ ostream& operator<<(ostream& os, const SWE_BlockCUDA& swe) {
 #ifdef DBG
   cout << "Ghost/Copy Layer bottom:" << endl;
      for(int i=0; i<=swe.nx+1; i++) {
-       os << swe.bottomGhostLayer->h[i]  << "  "; 
+       os << swe.bottomGhostLayer->h[i]  << "  ";
        os << swe.bottomGhostLayer->hu[i] << "  ";
        os << swe.bottomGhostLayer->hv[i] << "  ";
-       os << swe.bottomCopyLayer->h[i]  << "  ";  
-       os << swe.bottomCopyLayer->hu[i] << "  "; 
-       os << swe.bottomCopyLayer->hv[i] << "  "; 
+       os << swe.bottomCopyLayer->h[i]  << "  ";
+       os << swe.bottomCopyLayer->hu[i] << "  ";
+       os << swe.bottomCopyLayer->hv[i] << "  ";
        cout << endl;
      };
-  
+
   cout << "Ghost/Copy Layer top:" << endl;
      for(int i=0; i<=swe.nx+1; i++) {
-       os << swe.topGhostLayer->h[i]  << "  "; 
+       os << swe.topGhostLayer->h[i]  << "  ";
        os << swe.topGhostLayer->hu[i] << "  ";
        os << swe.topGhostLayer->hv[i] << "  ";
-       os << swe.topCopyLayer->h[i]  << "  ";  
-       os << swe.topCopyLayer->hu[i] << "  "; 
-       os << swe.topCopyLayer->hv[i] << "  "; 
+       os << swe.topCopyLayer->h[i]  << "  ";
+       os << swe.topCopyLayer->hu[i] << "  ";
+       os << swe.topCopyLayer->hv[i] << "  ";
        cout << endl;
      };
 #endif
-  
+
   os << flush;
 
   return os;

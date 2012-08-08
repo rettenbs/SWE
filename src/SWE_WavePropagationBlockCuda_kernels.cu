@@ -223,7 +223,9 @@ void updateUnknownsCUBLAS(
 	 *
 	 *
 	 */
+
 	for(int i = 0; i < i_nx; i++) {
+		printf("range: 0 to %d.  Offset: %d\n",(i_ny+1)*(i_nx+1),1 + (i_ny + 1) + (i_ny + 1)*i);
 		// h section
 		// - (dt/dx) * hNetUpdatesRight[i-1][j-1] (just row i)
 		// +1 shifts over a column, (i_ny + 1) shifts down a row, which has i_ny+1 elements, by construction.

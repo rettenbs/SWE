@@ -146,6 +146,7 @@ SWE_WavePropagationBlockCuda::~SWE_WavePropagationBlockCuda() {
   cudaFree(hvNetUpdatesAboveD);
 
   // reset the cuda device
+  cublasShutdown();
   s_sweLogger.printString("Resetting the CUDA devices");
   cudaDeviceReset();
 }
@@ -352,6 +353,8 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 	dim3 dimBlock(TILE_SIZE, TILE_SIZE);
 	dim3 dimGrid(nx/TILE_SIZE, ny/TILE_SIZE);
 
+
+/*
 	updateUnknownsKernel<<<dimGrid, dimBlock>>>(
 		hNetUpdatesLeftD,
 		hNetUpdatesRightD,
@@ -368,9 +371,8 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 		getMaxTimestep()/ny,
    		nx,
 		ny);
+*/
 
-/*
- * DBG:  EXPERIMENTAL CALL
 	updateUnknownsCUBLAS(
 		hNetUpdatesLeftD,
 		hNetUpdatesRightD,
@@ -388,7 +390,6 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
    		nx,
 		ny);
 
-*/
   // synchronize the copy layer for MPI communication
   #ifdef USEMPI
   synchCopyLayerBeforeRead();
