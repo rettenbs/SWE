@@ -44,13 +44,13 @@ void computeNetUpdatesKernel(
 
 // Host function to update the unknowns (calling CUBLAS commands)
 void updateUnknownsCUBLAS(
-    float* i_hNetUpdatesLeftD,   float* i_hNetUpdatesRightD,
-    float* i_huNetUpdatesLeftD,  float* i_huNetUpdatesRightD,
-    float* i_hNetUpdatesBelowD,  float* i_hNetUpdatesAboveD,
-    float* i_hvNetUpdatesBelowD, float* i_hvNetUpdatesAboveD,
+    const float* i_hNetUpdatesLeftD,   const float* i_hNetUpdatesRightD,
+    const float* i_huNetUpdatesLeftD,  const float* i_huNetUpdatesRightD,
+    const float* i_hNetUpdatesBelowD,  const float* i_hNetUpdatesAboveD,
+    const float* i_hvNetUpdatesBelowD, const float* i_hvNetUpdatesAboveD,
     float* io_h, float* io_hu, float* io_hv,
-    float i_updateWidthX, float i_updateWidthY,
-    int i_nx, int i_ny
+    const float i_updateWidthX, const float i_updateWidthY,
+    const int i_nX, const int i_nY
 );
 
 // CUDA-kernel which updates the unknowns

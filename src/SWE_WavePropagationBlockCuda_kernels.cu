@@ -48,7 +48,7 @@
  *                                                          hNetUpdatesBelowD, hNetUpdatesAboveD,
  *                                                          hvNetUpdatesBelowD, hvNetUpdatesAboveD,
  *                                                          l_maximumWaveSpeedsD,
- *                                                          i_nx, i_ny
+ *                                                          i_nX, i_nY
  *                                                        );
  *         To reduce the effect of branch-mispredictions the kernel provides optional offsets, which can be used to compute the missing edges.
  *
@@ -66,8 +66,8 @@
  * @param o_hvNetUpdatesBelowD downwards going net-updates for the momentum in y-direction (CUDA-array).
  * @param o_hvNetUpdatesAboveD upwards going net-updates for the momentum in y-direction (CUDA-array).
  * @param o_maximumWaveSpeeds maximum wave speed which occurred within the CUDA-block is written here (CUDA-array).
- * @param i_nx number of cells within the simulation domain in x-direction (excludes ghost layers).
- * @param i_ny number of cells within the simulation domain in y-direction (excludes ghost layers).
+ * @param i_nX number of cells within the simulation domain in x-direction (excludes ghost layers).
+ * @param i_nY number of cells within the simulation domain in y-direction (excludes ghost layers).
  * @param i_offsetX cell/edge offset in x-direction.
  * @param i_offsetY cell/edge offset in y-direction.
  */
@@ -188,8 +188,8 @@ void computeNetUpdatesKernel(
  * @param io_hv momentums in y-direction (CUDA-array).
  * @param i_updateWidthX update width in x-direction.
  * @param i_updateWidthY update width in y-direction.
- * @param i_nx number of cells within the simulation domain in x-direction (excludes ghost layers).
- * @param i_ny number of cells within the simulation domain in y-direction (excludes ghost layers).
+ * @param i_nX number of cells within the simulation domain in x-direction (excludes ghost layers).
+ * @param i_nY number of cells within the simulation domain in y-direction (excludes ghost layers).
  */
 
 /*
@@ -204,19 +204,15 @@ void computeNetUpdatesKernel(
  * CUDA philosophy:  think locally, act sequentially
  */
 void updateUnknownsCUBLAS(
-	float* i_hNetUpdatesLeftD,   float* i_hNetUpdatesRightD,
-	float* i_huNetUpdatesLeftD,  float* i_huNetUpdatesRightD,
-	float* i_hNetUpdatesBelowD,  float* i_hNetUpdatesAboveD,
-	float* i_hvNetUpdatesBelowD, float* i_hvNetUpdatesAboveD,
-	float* io_h, float* io_hu, float* io_hv,
-	float i_updateWidthX, float i_updateWidthY,
-	int i_nx, int i_ny)
+    const float* i_hNetUpdatesLeftD,   const float* i_hNetUpdatesRightD,
+    const float* i_huNetUpdatesLeftD,  const float* i_huNetUpdatesRightD,
+    const float* i_hNetUpdatesBelowD,  const float* i_hNetUpdatesAboveD,
+    const float* i_hvNetUpdatesBelowD, const float* i_hvNetUpdatesAboveD,
+    float* io_h, float* io_hu, float* io_hv,
+    const float i_updateWidthX, const float i_updateWidthY,
+    const int i_nX, const int i_nY )
 {
-
-	//  TODO:  Use CUDA streams to obtain concurrency in the execution below.
-
-
-	/*
+	/* BIG PICTURE
 	 *  h[i][j] -= dt/dx * (hNetUpdatesRight[i-1][j-1] + hNetUpdatesLeft[i][j-1])
 	 *          +  dt/dy * (hNetUpdatesAbove[i-1][j-1] + hNetUpdatesBelow[i-1][j]);
 	 *
@@ -224,93 +220,71 @@ void updateUnknownsCUBLAS(
 	 *
          *  hv[i][j] -= dt/dy * (hvNetUpdatesAbove[i-1][j-1] + hvNetUpdatesBelow[i-1][j]);
 	 *
-	 *
+	 *  ASSERT:  io_h, io_hv, io_hu are (i_ny + 2)x(i_nx + 2)
 	 */
 
-	 // Error checking and CUBLAS configuration
-	 cublasHandle_t cuhandle;
-	 cublasStatus_t custat;
-	 cudaError_t cudastat;
-	 custat = cublasCreate(&cuhandle);
-	 if(custat != CUBLAS_STATUS_SUCCESS) printf("Something went wrong initializing the CUBLAS context!\n");
+	//  TODO:  Use CUDA streams to obtain concurrency in the execution below.
+	cublasHandle_t cuhandle;
+	cublasCreate(&cuhandle);
 
-	 float dtdx = -i_updateWidthX;
-	 float dtdy = -i_updateWidthY;
-	 float dotfloat = 11.0;
-	 float negone = -1.0f;
+	// cublasSaxpy requires pointer to scalar, we provide them here.
+	float dtdx = -i_updateWidthX;
+	float dtdy = -i_updateWidthY;
 
+	// Warning:  i here should maybe be called j, but it is already written
+	// with i and I can't convince myself it should be j, so if you are
+	// confused this is why.
 
-	 float* d_testarray;
-	 cudaMalloc((void**)&d_testarray, (i_ny+1)*(i_nx+1)*sizeof(float));
-
-
-	 for(int i = 0; i < i_nx; i++) {
+	for(int i = 1; i <= i_nX; i++) {
 		// =========================h section=========================
-		// - (dt/dx) * hNetUpdatesRight[i-1][j-1] (just row i)
-		// +1 shifts over a column, (i_ny + 1) shifts down a row, which has i_ny+1 elements, by construction.
-
-		custat = cublasSaxpy(cuhandle, i_ny, &dtdx,
-				     i_hNetUpdatesRightD,                  1,
-				     io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
-
-		if(custat != CUBLAS_STATUS_SUCCESS) {
-			printf("updateUnknownsCUBLAS failure in h update 0!\n");
-		}
+		// io_h[i][j] += ...
+		// - (dt/dx) * hNetUpdatesRight[i-1][j-1]
+		cublasSaxpy(cuhandle, i_nY, &dtdx,
+			    i_hNetUpdatesRightD +     (i_nY + 1)*(i - 1), 1,
+			    io_h + 1 + (i_nY + 2)*i,			  1);
 
 		// - (dt/dx) * hNetUpdatesLeft[i][j-1]
-		cublasSaxpy(cuhandle, i_ny, &dtdx,
-			    i_hNetUpdatesLeftD,      1,
-			    io_h + 1 + (i_ny + 1)*i, 1);
+//		cublasSaxpy(cuhandle, i_nY, &dtdx,
+//			    i_hNetUpdatesLeftD  + 1 + (i_nY+1)*(i-1), 1,
+//			    io_h + 1 + (i_nY+1)*i,		      1);
 
 		// - (dt/dy) * hNetUpdatesAbove[i-1][j-1]
-		cublasSaxpy(cuhandle, i_ny, &dtdy,
-			    i_hNetUpdatesAboveD,                  1,
-			    io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+//		cublasSaxpy(cuhandle, i_nY, &dtdy,
+//			    i_hNetUpdatesAboveD + 1 + (i_nY+1)*(i-1), 1,
+//			    io_h + 1 + (i_nY+1)*i,		      1);
 
 		// - (dt/dy) * hNetUpdatesBelow[i-1][j]
-		cublasSaxpy(cuhandle, i_ny, &dtdy,
-			    i_hNetUpdatesBelowD,              1,
-			    io_h + (i_ny + 1) + (i_ny + 1)*i, 1);
+//		cublasSaxpy(cuhandle, i_nY, &dtdy,
+//			    i_hNetUpdatesBelowD + (i_nY+1)*i, 1,
+//			    io_h + 1 + (i_nY+1)*i,	      1);
 
 		//=========================hu section=========================
 		// - (dt/dx) * huNetUpdatesRight[i-1][j-1]
-		custat = cublasSaxpy(cuhandle, i_ny, &dtdx,
-				     i_huNetUpdatesRightD,                  1,
-				     io_hu + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
-
-		if(custat != CUBLAS_STATUS_SUCCESS) {
-			printf("updateUnknownsCUBLAS failure in hu update 0!\n");
-		}
+//		cublasSaxpy(cuhandle, i_nY, &dtdx,
+//			    i_huNetUpdatesRightD +     (i_nY+1)*(i-1), 1,
+//			    io_hu + 1 + (i_nY+1)*i,		       1);
 
 		// - (dt/dx) * huNetUpdatesLeft[i][j-1]
-		cublasSaxpy(cuhandle, i_ny, &dtdx,
-			    i_huNetUpdatesLeftD,      1,
-			    io_hu + 1 + (i_ny + 1)*i, 1);
+//		cublasSaxpy(cuhandle, i_nY, &dtdx,
+//			    i_huNetUpdatesLeftD  + 1 + (i_nY+1)*(i-1), 1,
+//			    io_hu + 1 + (i_nY+1)*i,		       1);
 
 
 		//=========================hv section=========================
 		// - (dt/dy) * hvNetUpdatesAbove[i-1][j-1]
-		custat = cublasSaxpy(cuhandle, i_ny, &dtdy,
-				     i_hvNetUpdatesAboveD,                  1,
-				     io_hv + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
-
-		if(custat != CUBLAS_STATUS_SUCCESS) {
-			printf("updateUnknownsCUBLAS failure in hv update 0!\n");
-		}
+//		cublasSaxpy(cuhandle, i_nY, &dtdy,
+//			    i_hvNetUpdatesAboveD +     (i_nY+1)*(i-1), 1,
+//			    io_hv + 1 + (i_nY+1)*i,		       1);
 
 		// - (dt/dy) * hvNetUpdatesBelow[i-1][j]);
-		cublasSaxpy(cuhandle, i_ny, &dtdy,
-			    i_hvNetUpdatesBelowD,              1,
-			    io_hv + (i_ny + 1) + (i_ny + 1)*i, 1);
-
-	    cudaThreadSynchronize();
-
+//		cublasSaxpy(cuhandle, i_nY, &dtdy,
+//			    i_hvNetUpdatesBelowD + (i_nY+1)*i, 1,
+//			    io_hv + 1 + (i_nY+1)*i,	       1);
 	}
 
 
-	custat = cublasDestroy(cuhandle);
-
-	cudaFree(d_testarray);
+	cudaThreadSynchronize();
+	cublasDestroy(cuhandle);
 
 
 }
@@ -334,16 +308,20 @@ void updateUnknownsKernel(
 	// Position in *NetUpdates*
 	int netUpdatePosition = computeOneDPositionKernel(i+1, j+1, i_nY + 1);
 
+	printf("i:%d, j:%d,  io_h pos: %d  net pos: %d\n",i,j,oneDPosition,netUpdatePosition - i_nY - 1);
 	// h updates as the sum of x- and y- positions
 	io_h[oneDPosition] -=
-                          i_updateWidthX * (i_hNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_hNetUpdatesLeftD[netUpdatePosition])
-			+ i_updateWidthY * (i_hNetUpdatesAboveD[netUpdatePosition - 1] + i_hNetUpdatesBelowD[netUpdatePosition]);
+								//(i+1)*(i_nY+1) + (j+1) - (i_nY) - 1
+								//(i+1)*(i_nY+1) + (j+1) - (i_nY+1)
+								//( i )*(i_nY+1) + (j+1)
+                          i_updateWidthX * (i_hNetUpdatesRightD[netUpdatePosition - i_nY - 1]); // + i_hNetUpdatesLeftD[netUpdatePosition])
+//			+ i_updateWidthY * (i_hNetUpdatesAboveD[netUpdatePosition - 1] + i_hNetUpdatesBelowD[netUpdatePosition]);
 
 	// hu contains only x component data, so it updates from the left and right
-	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_huNetUpdatesLeftD[netUpdatePosition]);
+//	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_huNetUpdatesLeftD[netUpdatePosition]);
 
 	// hv contains ony y component data, so it updates from the top and bottom
-	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[netUpdatePosition - 1] + i_hvNetUpdatesBelowD[netUpdatePosition]);
+//	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[netUpdatePosition - 1] + i_hvNetUpdatesBelowD[netUpdatePosition]);
 }
 
 /**
@@ -352,10 +330,10 @@ void updateUnknownsKernel(
  *
  * @param i_i row index.
  * @param i_j column index.
- * @param i_ny #(cells in y-direction).
+ * @param i_nY #(cells in y-direction).
  * @return 1D index.
  */
 __device__
-inline int computeOneDPositionKernel(const int i_i, const int i_j, const int i_ny) {
-  return i_i*i_ny + i_j;
+inline int computeOneDPositionKernel(const int i_i, const int i_j, const int i_nY) {
+  return i_i*i_nY + i_j;
 }
