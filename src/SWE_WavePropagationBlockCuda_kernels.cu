@@ -32,7 +32,7 @@
 #include <cstdio>
 
 #include "solvers/FWaveCuda.h"
-#include "cublas.h"
+#include "cublas_v2.h"
 
 #define G 9.81
 
@@ -224,38 +224,58 @@ void updateUnknownsCUBLAS(
 	 *
 	 */
 
+	 // Error checking and CUBLAS configuration
+	 cublasHandle_t cuhandle;
+	 cublasStatus_t custat;
+	 custat = cublasCreate(&cuhandle);
+	 if(custat != CUBLAS_STATUS_SUCCESS) printf("Something went wrong initializing the CUBLAS context!\n");
+
+	 float dtdx = -i_updateWidthX;
+	 float dtdy = -i_updateWidthY;
+
+
 	for(int i = 0; i < i_nx; i++) {
-		printf("range: 0 to %d.  Offset: %d\n",(i_ny+1)*(i_nx+1),1 + (i_ny + 1) + (i_ny + 1)*i);
-		// h section
+		// =========================h section=========================
 		// - (dt/dx) * hNetUpdatesRight[i-1][j-1] (just row i)
 		// +1 shifts over a column, (i_ny + 1) shifts down a row, which has i_ny+1 elements, by construction.
-		cublasSaxpy(i_ny, -i_updateWidthX, i_hNetUpdatesRightD, 1, io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		custat = cublasSaxpy(cuhandle, i_ny, &dtdx, i_hNetUpdatesRightD, 1, io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		if(custat != CUBLAS_STATUS_SUCCESS) {
+			printf("updateUnknownsCUBLAS failure in h update 0!\n");
+		}
 
 		// - (dt/dx) * hNetUpdatesLeft[i][j-1]
-		cublasSaxpy(i_ny, -i_updateWidthX, i_hNetUpdatesLeftD,  1, io_h + 1 + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdx, i_hNetUpdatesLeftD,  1, io_h + 1 + (i_ny + 1)*i, 1);
 
 		// - (dt/dy) * hNetUpdatesAbove[i-1][j-1]
-		cublasSaxpy(i_ny, -i_updateWidthY, i_hNetUpdatesAboveD, 1, io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdy, i_hNetUpdatesAboveD, 1, io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
 
 		// - (dt/dy) * hNetUpdatesBelow[i-1][j]
-		cublasSaxpy(i_ny, -i_updateWidthY, i_hNetUpdatesBelowD, 1, io_h + (i_ny + 1) + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdy, i_hNetUpdatesBelowD, 1, io_h + (i_ny + 1) + (i_ny + 1)*i, 1);
 
-		// hu section
+		//=========================hu section=========================
 		// - (dt/dx) * huNetUpdatesRight[i-1][j-1]
-		cublasSaxpy(i_ny, -i_updateWidthX, i_huNetUpdatesRightD, 1, io_hu + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		custat = cublasSaxpy(cuhandle, i_ny, &dtdx, i_huNetUpdatesRightD, 1, io_hu + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		if(custat != CUBLAS_STATUS_SUCCESS) {
+			printf("updateUnknownsCUBLAS failure in hu update 0!\n");
+		}
 
 		// - (dt/dx) * huNetUpdatesLeft[i][j-1]
-		cublasSaxpy(i_ny, -i_updateWidthX, i_huNetUpdatesLeftD,  1, io_hu + 1 + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdx, i_huNetUpdatesLeftD,  1, io_hu + 1 + (i_ny + 1)*i, 1);
 
 
-		// hv section
+		//=========================hv section=========================
 		// - (dt/dy) * hvNetUpdatesAbove[i-1][j-1]
-		cublasSaxpy(i_ny, -i_updateWidthY, i_hvNetUpdatesAboveD, 1, io_hv + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		custat = cublasSaxpy(cuhandle, i_ny, &dtdy, i_hvNetUpdatesAboveD, 1, io_hv + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+		if(custat != CUBLAS_STATUS_SUCCESS) {
+			printf("updateUnknownsCUBLAS failure in hv update 0!\n");
+		}
 
 		// - (dt/dy) * hvNetUpdatesBelow[i-1][j]);
-		cublasSaxpy(i_ny, -i_updateWidthY, i_hvNetUpdatesBelowD, 1, io_hv + (i_ny + 1) + (i_ny + 1)*i, 1);
+		cublasSaxpy(cuhandle, i_ny, &dtdy, i_hvNetUpdatesBelowD, 1, io_hv + (i_ny + 1) + (i_ny + 1)*i, 1);
 
 	}
+
+	custat = cublasDestroy(cuhandle);
 
 
 

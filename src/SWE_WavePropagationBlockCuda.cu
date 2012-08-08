@@ -41,7 +41,6 @@ static tools::Logger s_sweLogger;
 // CUDA-C includes
 #include <cuda.h>
 #include <cuda_runtime_api.h>
-#include "cublas.h"
 
 // Thrust library (used for the final maximum reduction in the method computeNumericalFluxes(...))
 #include <thrust/device_vector.h>
@@ -146,7 +145,6 @@ SWE_WavePropagationBlockCuda::~SWE_WavePropagationBlockCuda() {
   cudaFree(hvNetUpdatesAboveD);
 
   // reset the cuda device
-  cublasShutdown();
   s_sweLogger.printString("Resetting the CUDA devices");
   cudaDeviceReset();
 }

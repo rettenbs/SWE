@@ -34,7 +34,6 @@
 #include <cuda_runtime.h>
 #include "tools/help.hh"
 #include "SWE_Block.hh"
-#include "cublas.h"
 
 using namespace std;
 

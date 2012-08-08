@@ -92,7 +92,6 @@ SWE_BlockCUDA::SWE_BlockCUDA(float _offsetX, float _offsetY, const int i_cudaDev
   s_sweLogger.setProcessRank(i_cudaDevice);
 
   cudaSetDevice(4);
-  cublasInit();
 
   // check for a valid CUDA device id
   #ifndef NDEBUG
@@ -140,18 +139,6 @@ SWE_BlockCUDA::SWE_BlockCUDA(float _offsetX, float _offsetY, const int i_cudaDev
      checkCUDAError("allocate device memory for bottom copy/ghost layer");
   cudaMalloc((void**)&topLayerDevice, 6*size*sizeof(float));
      checkCUDAError("allocate device memory for top copy/ghost layer");
-
-  // Check to make sure CUBLAS is actually initialized:
-  cublasStatus cu_stat;
-  float* d_testA;
-  cu_stat = cublasAlloc(1, sizeof(float), (void**)&d_testA);
-  if(cu_stat != CUBLAS_STATUS_SUCCESS) {
-	  printf("CUBLAS might not be initialized! WARNING!\n");
-  } else {
-	  printf("CUBLAS initialized!\n");
-  }
-
-  cublasFree(d_testA);
 }
 
 /**
