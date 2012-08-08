@@ -174,7 +174,7 @@ def generate(env):
         # add required libraries
         env.Append(CPPPATH=[cudaSDKPath + '/common/inc', cudaToolkitPath + '/include'])
         env.Append(LIBPATH=[cudaToolkitPath + '/lib64'])
-        env.Append(LIBS=['cudart'])
+        env.Append(LIBS=['cudart','cublas'])
 
 def exists(env):
         return env.Detect('nvcc')

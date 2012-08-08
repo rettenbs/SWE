@@ -32,6 +32,7 @@
 #include <cstdio>
 
 #include "solvers/FWaveCuda.h"
+#include "cublas.h"
 
 #define G 9.81
 
@@ -89,7 +90,7 @@ void computeNetUpdatesKernel(
 	// T is from ./solvers/FWaveCuda.h
 	// this implements "typedef float T;"  by default
 	T netUpdates[5];
-	
+
 	// computeOneDPo...(arg0,arg1,arg2) = arg0*arg2 + arg1
 	// Position in h, hu, hv, b
 	int oneDPosition = computeOneDPositionKernel(i + i_offsetX,
@@ -149,21 +150,21 @@ void computeNetUpdatesKernel(
 	{
  		int halfPoint = (nTotalThreads >> 1);	// divide by two
 
-		// only the first half of the threads will be active. 
+		// only the first half of the threads will be active.
   		if (thread1 < halfPoint)
   		{
    			int thread2 = thread1 + halfPoint;
- 
+
     			// Get the shared value stored by another thread
- 
+
     			T temp = maxWaveSpeed[thread2];
-    			if (temp > maxWaveSpeed[thread1]) 
-       				maxWaveSpeed[thread1] = temp;			
- 
+    			if (temp > maxWaveSpeed[thread1])
+       				maxWaveSpeed[thread1] = temp;
+
  		}
-  		
+
 		__syncthreads();
- 
+
   		// Reducing the binary tree size by two:
   		nTotalThreads = halfPoint;
 	}
@@ -190,6 +191,74 @@ void computeNetUpdatesKernel(
  * @param i_nx number of cells within the simulation domain in x-direction (excludes ghost layers).
  * @param i_ny number of cells within the simulation domain in y-direction (excludes ghost layers).
  */
+
+/*
+ * updateUnknownsCUBLAS
+ * reexpression of updateUnknownsKernel as a sequence of cublasSaxpy().
+ * The purpose here is to take advantage of high-performance CUBLAS calls
+ * in order to further disguise the cost of performing these small transactions
+ *
+ * CUDA philosophy:  think locally, act sequentially
+ */
+void updateUnknownsCUBLAS(
+	float* i_hNetUpdatesLeftD,   float* i_hNetUpdatesRightD,
+	float* i_huNetUpdatesLeftD,  float* i_huNetUpdatesRightD,
+	float* i_hNetUpdatesBelowD,  float* i_hNetUpdatesAboveD,
+	float* i_hvNetUpdatesBelowD, float* i_hvNetUpdatesAboveD,
+	float* io_h, float* io_hu, float* io_hv,
+	float i_updateWidthX, float i_updateWidthY,
+	int i_nx, int i_ny)
+{
+
+	//  TODO:  Use CUDA streams to obtain concurrency in the execution below.
+
+
+	/*
+	 *  h[i][j] -= dt/dx * (hNetUpdatesRight[i-1][j-1] + hNetUpdatesLeft[i][j-1])
+	 *          +  dt/dy * (hNetUpdatesAbove[i-1][j-1] + hNetUpdatesBelow[i-1][j]);
+	 *
+	 *  hu[i][j] -= dt/dx * (huNetUpdatesRight[i-1][j-1] + huNetUpdatesLeft[i][j-1]);
+	 *
+         *  hv[i][j] -= dt/dy * (hvNetUpdatesAbove[i-1][j-1] + hvNetUpdatesBelow[i-1][j]);
+	 *
+	 *
+	 */
+	for(int i = 0; i < i_nx; i++) {
+		// h section
+		// - (dt/dx) * hNetUpdatesRight[i-1][j-1] (just row i)
+		// +1 shifts over a column, (i_ny + 1) shifts down a row, which has i_ny+1 elements, by construction.
+		cublasSaxpy(i_ny, -i_updateWidthX, i_hNetUpdatesRightD, 1, io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+
+		// - (dt/dx) * hNetUpdatesLeft[i][j-1]
+		cublasSaxpy(i_ny, -i_updateWidthX, i_hNetUpdatesLeftD,  1, io_h + 1 + (i_ny + 1)*i, 1);
+
+		// - (dt/dy) * hNetUpdatesAbove[i-1][j-1]
+		cublasSaxpy(i_ny, -i_updateWidthY, i_hNetUpdatesAboveD, 1, io_h + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+
+		// - (dt/dy) * hNetUpdatesBelow[i-1][j]
+		cublasSaxpy(i_ny, -i_updateWidthY, i_hNetUpdatesBelowD, 1, io_h + (i_ny + 1) + (i_ny + 1)*i, 1);
+
+		// hu section
+		// - (dt/dx) * huNetUpdatesRight[i-1][j-1]
+		cublasSaxpy(i_ny, -i_updateWidthX, i_huNetUpdatesRightD, 1, io_hu + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+
+		// - (dt/dx) * huNetUpdatesLeft[i][j-1]
+		cublasSaxpy(i_ny, -i_updateWidthX, i_huNetUpdatesLeftD,  1, io_hu + 1 + (i_ny + 1)*i, 1);
+
+
+		// hv section
+		// - (dt/dy) * hvNetUpdatesAbove[i-1][j-1]
+		cublasSaxpy(i_ny, -i_updateWidthY, i_hvNetUpdatesAboveD, 1, io_hv + 1 + (i_ny + 1) + (i_ny + 1)*i, 1);
+
+		// - (dt/dy) * hvNetUpdatesBelow[i-1][j]);
+		cublasSaxpy(i_ny, -i_updateWidthY, i_hvNetUpdatesBelowD, 1, io_hv + (i_ny + 1) + (i_ny + 1)*i, 1);
+
+	}
+
+
+
+}
+
 __global__
 void updateUnknownsKernel(
     const float* i_hNetUpdatesLeftD,   const float* i_hNetUpdatesRightD,
@@ -199,7 +268,7 @@ void updateUnknownsKernel(
     float* io_h, float* io_hu, float* io_hv,
     const float i_updateWidthX, const float i_updateWidthY,
     const int i_nX, const int i_nY )
-{
+	{
 	int i = blockIdx.x * TILE_SIZE + threadIdx.x;
 	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
 
@@ -209,7 +278,7 @@ void updateUnknownsKernel(
 	// Position in *NetUpdates*
 	int netUpdatePosition = computeOneDPositionKernel(i+1, j+1, i_nY + 1);
 
-	// h updates as the sum of x- and y- positions	
+	// h updates as the sum of x- and y- positions
 	io_h[oneDPosition] -=
                           i_updateWidthX * (i_hNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_hNetUpdatesLeftD[netUpdatePosition])
 			+ i_updateWidthY * (i_hNetUpdatesAboveD[netUpdatePosition - 1] + i_hNetUpdatesBelowD[netUpdatePosition]);

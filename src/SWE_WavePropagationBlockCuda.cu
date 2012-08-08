@@ -37,12 +37,11 @@
 #include "tools/Logger.hpp"
 static tools::Logger s_sweLogger;
 #endif
-// C includes
-#include <sys/time.h>
 
 // CUDA-C includes
 #include <cuda.h>
 #include <cuda_runtime_api.h>
+#include "cublas.h"
 
 // Thrust library (used for the final maximum reduction in the method computeNumericalFluxes(...))
 #include <thrust/device_vector.h>
@@ -172,7 +171,7 @@ void SWE_WavePropagationBlockCuda::simulateTimestep(float i_dT) {
 
 /**
  * perform forward-Euler time steps, starting with simulation time tStart,:
- * until simulation time tEnd is reached; 
+ * until simulation time tEnd is reached;
  * device-global variables hd, hud, hvd are updated;
  * unknowns h, hu, hv in main memory are not updated.
  * Ghost layers and bathymetry sources are updated between timesteps.
@@ -184,13 +183,13 @@ float SWE_WavePropagationBlockCuda::simulate(float tStart, float tEnd) {
   do {
      // set values in ghost cells:
      setGhostLayer();
-     
+
      // Compute the numerical fluxes/net-updates in the wave propagation formulation.
      computeNumericalFluxes();
 
      // Update the unknowns with the net-updates.
      updateUnknowns(maxTimestep);
-	 
+
 	 t += maxTimestep;
   } while(t < tEnd);
 
@@ -227,10 +226,6 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
    */
 
 	// use sys/time to get higher-resolution timing
-	struct timeval start_time;
-	struct timeval end_time;
-	long diff;
-        gettimeofday(&start_time, NULL);
 
 	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
 		hd,
@@ -320,21 +315,14 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
 		nx/TILE_SIZE,
 		ny/TILE_SIZE);
 
-	gettimeofday(&end_time, NULL);
-        diff = ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
-	printf("computeNetUpdatesKernel time: %ld\n",diff);
-
   /*
    * Finalize (max reduction of the maximumWaveSpeeds-array.)
    *
    * The Thrust library is used in this step.
    * An optional kernel could be written for the maximum reduction.
    */
-  // Thrust pointer to the device array        diff = ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
+  // Thrust pointer to the device array
 
-
-	// Begin timing for thrust max timestep part
-	gettimeofday(&start_time, NULL);
 
   thrust::device_ptr<float> l_thrustDevicePointer(l_maximumWaveSpeedsD);
   //thrust::device_ptr<float> l_thrustDevicePointer = thrust::device_pointer_cast(l_maximumWaveSpeedsD);
@@ -354,13 +342,6 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
   // CFL = 0.5
   maxTimestep *= (float)0.4;
 
-	
-	// Finish timing for thrust max timestep part
-	gettimeofday(&end_time, NULL);
-        diff = ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
-        printf("thrust maxTimestep computation time: %ld\n",diff);
-
-
 }
 /**
  * Update the cells with a given global time step.
@@ -372,7 +353,7 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 	dim3 dimGrid(nx/TILE_SIZE, ny/TILE_SIZE);
 
 	updateUnknownsKernel<<<dimGrid, dimBlock>>>(
-		hNetUpdatesLeftD, 
+		hNetUpdatesLeftD,
 		hNetUpdatesRightD,
 		huNetUpdatesLeftD,
 		huNetUpdatesRightD,
@@ -388,6 +369,26 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
    		nx,
 		ny);
 
+/*
+ * DBG:  EXPERIMENTAL CALL
+	updateUnknownsCUBLAS(
+		hNetUpdatesLeftD,
+		hNetUpdatesRightD,
+		huNetUpdatesLeftD,
+		huNetUpdatesRightD,
+		hNetUpdatesBelowD,
+		hNetUpdatesAboveD,
+    		hvNetUpdatesBelowD,
+		hvNetUpdatesAboveD,
+    		hd,
+		hud,
+		hvd,
+		getMaxTimestep()/nx,
+		getMaxTimestep()/ny,
+   		nx,
+		ny);
+
+*/
   // synchronize the copy layer for MPI communication
   #ifdef USEMPI
   synchCopyLayerBeforeRead();

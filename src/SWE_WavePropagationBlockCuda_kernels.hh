@@ -42,6 +42,17 @@ void computeNetUpdatesKernel(
     const int i_blockOffSetX = 0, const int i_blockOffSetY = 0
 );
 
+// Host function to update the unknowns (calling CUBLAS commands)
+void updateUnknownsCUBLAS(
+    float* i_hNetUpdatesLeftD,   float* i_hNetUpdatesRightD,
+    float* i_huNetUpdatesLeftD,  float* i_huNetUpdatesRightD,
+    float* i_hNetUpdatesBelowD,  float* i_hNetUpdatesAboveD,
+    float* i_hvNetUpdatesBelowD, float* i_hvNetUpdatesAboveD,
+    float* io_h, float* io_hu, float* io_hv,
+    float i_updateWidthX, float i_updateWidthY,
+    int i_nx, int i_ny
+);
+
 // CUDA-kernel which updates the unknowns
 __global__
 void updateUnknownsKernel(
@@ -59,3 +70,4 @@ __device__
 inline int computeOneDPositionKernel(const int i_i, const int i_j, const int i_nx);
 
 #endif /* SWEWAVEPROPAGATIONBLOCKCUDAKERNELS_HH_ */
+

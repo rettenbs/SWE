@@ -91,7 +91,7 @@ SWE_BlockCUDA::SWE_BlockCUDA(float _offsetX, float _offsetY, const int i_cudaDev
 {
   s_sweLogger.setProcessRank(i_cudaDevice);
 
-  cudaSetDevice(6);
+  cudaSetDevice(4);
 
   // check for a valid CUDA device id
   #ifndef NDEBUG
