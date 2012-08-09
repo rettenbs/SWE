@@ -1,4 +1,4 @@
-/**
+/*
  * @file
  * This file is part of SWE.
  *
@@ -39,7 +39,9 @@ static tools::Logger s_sweLogger;
 #endif
 
 // system time includes
+#ifdef TIMEKERNELS
 #include <sys/time.h>
+#endif /* TIMEKERNELS */
 
 // CUDA-C includes
 #include <cuda.h>
