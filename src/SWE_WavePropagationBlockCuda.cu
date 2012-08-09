@@ -41,8 +41,6 @@
 static tools::Logger s_sweLogger;
 #endif
 
-#define TIMEKERNELS (0)
-
 // system time includes
 #ifdef TIMEKERNELS
 #include <sys/time.h>
