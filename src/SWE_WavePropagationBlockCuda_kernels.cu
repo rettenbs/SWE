@@ -93,48 +93,52 @@ void computeNetUpdatesKernel(
 
 	// computeOneDPo...(arg0,arg1,arg2) = arg0*arg2 + arg1
 	// Position in h, hu, hv, b
-	int oneDPosition = computeOneDPositionKernel(i + i_offsetX,
-		 j + i_offsetY,
+	int oneDPosition = computeOneDPositionKernel(i + i_offsetX + 1,
+		 j + i_offsetY + 1,
 		 i_nY + 2);
 	// Position in *NetUpdates*
-	int netUpdatePosition = computeOneDPositionKernel(i + i_offsetX,
-		j + i_offsetY,
+	int netUpdatePosition = computeOneDPositionKernel(i + i_offsetX + 1,
+		j + i_offsetY + 1,
 		i_nY + 1);
-	T localMaxWaveSpeed; // local maximum wave speed
+	T localMaxWaveSpeed = 0; // local maximum wave speed
 	__shared__ T maxWaveSpeed[TILE_SIZE * TILE_SIZE]; // maximum wave speeds for this block
 
 	// Returns the values of net updates in T netUpdates[5] with values
 	// corresponding to ("h_left","h_right","hu_left","hu_right","MaxWaveSpeed").
-	fWaveComputeNetUpdates(G,
-		i_h[oneDPosition],
-		i_h[oneDPosition + i_nY + 2],
-		i_hu[oneDPosition],
-		i_hu[oneDPosition + i_nY + 2],
-		i_b[oneDPosition],
-		i_b[oneDPosition + i_nY + 2],
-		netUpdates);
+	if (i_offsetY == 0) {
+		fWaveComputeNetUpdates(G,
+			i_h[oneDPosition - i_nY - 2],
+			i_h[oneDPosition],
+			i_hu[oneDPosition -  i_nY - 2],
+			i_hu[oneDPosition],
+			i_b[oneDPosition - i_nY - 2],
+			i_b[oneDPosition],
+			netUpdates);
 
-	o_hNetUpdatesLeftD[netUpdatePosition] = netUpdates[0];
-	o_hNetUpdatesRightD[netUpdatePosition] = netUpdates[1];
-	o_huNetUpdatesLeftD[netUpdatePosition] = netUpdates[2];
-	o_huNetUpdatesRightD[netUpdatePosition] = netUpdates[3];
-	localMaxWaveSpeed = netUpdates[4];
-
-	fWaveComputeNetUpdates(G,
-		i_h[oneDPosition],
-		i_h[oneDPosition + 1],
-		i_hv[oneDPosition],
-		i_hv[oneDPosition + 1],
-		i_b[oneDPosition],
-		i_b[oneDPosition + 1],
-		netUpdates);
-
-	o_hNetUpdatesBelowD[netUpdatePosition] = netUpdates[0];
-	o_hNetUpdatesAboveD[netUpdatePosition] = netUpdates[1];
-	o_hvNetUpdatesBelowD[netUpdatePosition] = netUpdates[2];
-	o_hvNetUpdatesAboveD[netUpdatePosition] = netUpdates[3];
-	if (netUpdates[4] > localMaxWaveSpeed)
+		o_hNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[0];
+		o_hNetUpdatesRightD[netUpdatePosition - i_nY - 1] = netUpdates[1];
+		o_huNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[2];
+		o_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] = netUpdates[3];
 		localMaxWaveSpeed = netUpdates[4];
+	}
+
+	if (i_offsetX == 0) {
+		fWaveComputeNetUpdates(G,
+			i_h[oneDPosition - 1],
+			i_h[oneDPosition],
+			i_hv[oneDPosition - 1],
+			i_hv[oneDPosition],
+			i_b[oneDPosition - 1],
+			i_b[oneDPosition],
+			netUpdates);
+
+		o_hNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[0];
+		o_hNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[1];
+		o_hvNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[2];
+		o_hvNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[3];
+		if (netUpdates[4] > localMaxWaveSpeed)
+			localMaxWaveSpeed = netUpdates[4];
+	}
 
 	// thread1 is the id of this thread in the block
 	int thread1 = threadIdx.x * blockDim.y + threadIdx.y;
@@ -298,30 +302,29 @@ void updateUnknownsKernel(
     float* io_h, float* io_hu, float* io_hv,
     const float i_updateWidthX, const float i_updateWidthY,
     const int i_nX, const int i_nY )
-	{
+{
 	int i = blockIdx.x * TILE_SIZE + threadIdx.x;
 	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
 
-	// TODO I think we also need the (block)Offset here ...
 	// Position in h, hu, hv, b
 	int oneDPosition = computeOneDPositionKernel(i+1, j+1, i_nY + 2);
 	// Position in *NetUpdates*
 	int netUpdatePosition = computeOneDPositionKernel(i+1, j+1, i_nY + 1);
 
-	printf("i:%d, j:%d,  io_h pos: %d  net pos: %d\n",i,j,oneDPosition,netUpdatePosition - i_nY - 1);
+	//printf("i:%d, j:%d,  io_h pos: %d  net pos: %d\n",i,j,oneDPosition,netUpdatePosition - i_nY - 1);
 	// h updates as the sum of x- and y- positions
 	io_h[oneDPosition] -=
 								//(i+1)*(i_nY+1) + (j+1) - (i_nY) - 1
 								//(i+1)*(i_nY+1) + (j+1) - (i_nY+1)
 								//( i )*(i_nY+1) + (j+1)
-                          i_updateWidthX * (i_hNetUpdatesRightD[netUpdatePosition - i_nY - 1]); // + i_hNetUpdatesLeftD[netUpdatePosition])
-//			+ i_updateWidthY * (i_hNetUpdatesAboveD[netUpdatePosition - 1] + i_hNetUpdatesBelowD[netUpdatePosition]);
+                          i_updateWidthX * (i_hNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_hNetUpdatesLeftD[netUpdatePosition])
+			+ i_updateWidthY * (i_hNetUpdatesAboveD[netUpdatePosition - 1] + i_hNetUpdatesBelowD[netUpdatePosition]);
 
 	// hu contains only x component data, so it updates from the left and right
-//	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_huNetUpdatesLeftD[netUpdatePosition]);
+	io_hu[oneDPosition] -= i_updateWidthX * (i_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] + i_huNetUpdatesLeftD[netUpdatePosition]);
 
 	// hv contains ony y component data, so it updates from the top and bottom
-//	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[netUpdatePosition - 1] + i_hvNetUpdatesBelowD[netUpdatePosition]);
+	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[netUpdatePosition - 1] + i_hvNetUpdatesBelowD[netUpdatePosition]);
 }
 
 /**
