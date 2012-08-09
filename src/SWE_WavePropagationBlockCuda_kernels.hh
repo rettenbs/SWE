@@ -68,6 +68,17 @@ void updateUnknownsCUBLASOld(
     const cublasHandle_t* cuhandle
 );
 
+// CUDA-kernel which updates the unknowns (uses atomic operations)
+__global__
+void updateUnknownsKernelAtomic(
+    const float* i_hNetUpdatesLeftD,   const float* i_hNetUpdatesRightD,
+    const float* i_huNetUpdatesLeftD,  const float* i_huNetUpdatesRightD,
+    const float* i_hNetUpdatesBelowD,  const float* i_hNetUpdatesAboveD,
+    const float* i_hvNetUpdatesBelowD, const float* i_hvNetUpdatesAboveD,
+    float* io_h, float* io_hu, float* io_hv,
+    const int i_nx, const int i_ny
+);
+
 // CUDA-kernel which updates the unknowns
 __global__
 void updateUnknownsKernel(

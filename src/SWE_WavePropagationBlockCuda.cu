@@ -26,7 +26,7 @@
  */
 
 // Uncomment this, to get kernel timings
-//#define TIMEKERNELS
+#define TIMEKERNELS (1)
 
 #include "SWE_WavePropagationBlockCuda.hh"
 #include "SWE_BlockCUDA.hh"
@@ -394,6 +394,7 @@ struct timeval end_time;
 long diff2 = 0;
 long diff3 = 0;
 long diff4 = 0;
+long diff5 = 0;
 for(int ii=0;ii<20;ii++) {
 cudaDeviceSynchronize();
 gettimeofday(&start_time, NULL);
@@ -466,8 +467,40 @@ gettimeofday(&start_time, NULL);
 cudaDeviceSynchronize();
 gettimeofday(&end_time, NULL);
 diff4 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
+gettimeofday(&start_time, NULL);
+
+float dxdt = -i_deltaT/dx;
+float dydt = -i_deltaT/dy;
+//cublasSscal(cu_handle[0], (nx+1)*(ny+1), &dxdt, hNetUpdatesLeftD, 1);
+//cublasSscal(cu_handle[0], (nx+1)*(ny+1), &dxdt, hNetUpdatesRightD, 1);
+//cublasSscal(cu_handle[0], (nx+1)*(ny+1), &dxdt, huNetUpdatesLeftD, 1);
+//cublasSscal(cu_handle[0], (nx+1)*(ny+1), &dxdt, huNetUpdatesRightD, 1);
+//cublasSscal(cu_handle[0], (nx+1)*(ny+1), &dydt, hNetUpdatesBelowD, 1);
+//cublasSscal(cu_handle[0], (nx+1)*(ny+1), &dydt, hNetUpdatesAboveD, 1);
+//cublasSscal(cu_handle[0], (nx+1)*(ny+1), &dydt, hvNetUpdatesBelowD, 1);
+//cublasSscal(cu_handle[0], (nx+1)*(ny+1), &dydt, hvNetUpdatesAboveD, 1);
+
+
+	updateUnknownsKernelAtomic<<<dimGrid, dimBlock>>>(
+		hNetUpdatesLeftD,
+		hNetUpdatesRightD,
+		huNetUpdatesLeftD,
+		huNetUpdatesRightD,
+		hNetUpdatesBelowD,
+		hNetUpdatesAboveD,
+    		hvNetUpdatesBelowD,
+		hvNetUpdatesAboveD,
+    		hd,
+		hud,
+		hvd,
+   		nx,
+		ny);
+
+cudaDeviceSynchronize();
+gettimeofday(&end_time, NULL);
+diff5 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
 }
-printf("updateUnknownsKernel: %ld \nupdateUnknownsCUBLAS: %ld\nupdateUnknownsCUBLASOld: %ld\n\n", diff2, diff3, diff4);
+printf("updateUnknownsKernel: \t\t\t%ld \nupdateUnknownsCUBLAS: \t\t%ld\nupdateUnknownsCUBLASOld: \t%ld\nnupdateUnknownsCUBLASAtomic: \t%ld\n\n", diff2, diff3, diff4, diff5);
 #endif /* TIMEKERNELS */
 
 

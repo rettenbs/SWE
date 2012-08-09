@@ -398,6 +398,7 @@ void updateUnknownsKernel(
     const float i_updateWidthX, const float i_updateWidthY,
     const int i_nX, const int i_nY )
 {
+//TODO:  switch blockIdx.y,x and dim in the kernel call
 	int i = blockIdx.x * TILE_SIZE + threadIdx.x;
 	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
 
@@ -416,6 +417,36 @@ void updateUnknownsKernel(
 
 	// hv contains ony y component data, so it updates from the top and bottom
 	io_hv[oneDPosition] -= i_updateWidthY * (i_hvNetUpdatesAboveD[netUpdatePosition - 1] + i_hvNetUpdatesBelowD[netUpdatePosition]);
+}
+
+__global__
+void updateUnknownsKernelAtomic(
+    const float* i_hNetUpdatesLeftD,   const float* i_hNetUpdatesRightD,
+    const float* i_huNetUpdatesLeftD,  const float* i_huNetUpdatesRightD,
+    const float* i_hNetUpdatesBelowD,  const float* i_hNetUpdatesAboveD,
+    const float* i_hvNetUpdatesBelowD, const float* i_hvNetUpdatesAboveD,
+    float* io_h, float* io_hu, float* io_hv,
+    const int i_nX, const int i_nY )
+{
+	// Assumes that the multiplicative factors have already been applied to the block by CUBLAS or something.
+	int i = blockIdx.x * TILE_SIZE + threadIdx.x;
+	int j = blockIdx.y * TILE_SIZE + threadIdx.y;
+
+	// Position in h, hu, hv, b
+	int oneDPosition = computeOneDPositionKernel(i+1, j+1, i_nY + 2);
+	// Position in *NetUpdates*
+	int netUpdatePosition = computeOneDPositionKernel(i+1, j+1, i_nY + 1);
+
+	atomicAdd(io_h + oneDPosition, -i_hNetUpdatesRightD[netUpdatePosition - i_nY - 1]);
+	atomicAdd(io_h + oneDPosition, -i_hNetUpdatesLeftD[netUpdatePosition]);
+	atomicAdd(io_h + oneDPosition, -i_hNetUpdatesAboveD[netUpdatePosition - 1]);
+	atomicAdd(io_h + oneDPosition, -i_hNetUpdatesBelowD[netUpdatePosition]);
+
+	atomicAdd(io_h + oneDPosition, -i_huNetUpdatesRightD[netUpdatePosition - i_nY - 1]);
+	atomicAdd(io_h + oneDPosition, -i_huNetUpdatesLeftD[netUpdatePosition]);
+
+	atomicAdd(io_hv + oneDPosition, -i_hvNetUpdatesAboveD[netUpdatePosition - 1]);
+	atomicAdd(io_hv + oneDPosition, -i_hvNetUpdatesBelowD[netUpdatePosition]);
 }
 
 /**
