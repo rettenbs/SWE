@@ -79,6 +79,8 @@ vars.AddVariables(
 
   BoolVariable( 'openGL', 'compile with OpenGL visualization', False),
 
+  BoolVariable( 'timeKernels', 'Compare the speed of update kernels', False),
+
   BoolVariable( 'writeNetCDF', 'write output in the netCDF-format', False ),
 
   BoolVariable( 'asagi', 'use ASAGI', False ),
@@ -158,6 +160,10 @@ elif env['compileMode'] == 'release':
 
   elif env['compiler'] == 'intel':
     env.Append(CCFLAGS=['-O2'])
+
+# set the precompiler variables for the timer
+if env['timeKernels'] == True:
+  env.Append(CCFLAGS=['-DTIMEKERNELS'])
 
 # set the precompiler variables for the solver
 if env['solver'] == 'fwave':
