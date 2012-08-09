@@ -300,6 +300,94 @@ void updateUnknownsCUBLAS(
 
 }
 
+void updateUnknownsCUBLASOld(
+    const float* i_hNetUpdatesLeftD,   const float* i_hNetUpdatesRightD,
+    const float* i_huNetUpdatesLeftD,  const float* i_huNetUpdatesRightD,
+    const float* i_hNetUpdatesBelowD,  const float* i_hNetUpdatesAboveD,
+    const float* i_hvNetUpdatesBelowD, const float* i_hvNetUpdatesAboveD,
+    float* io_h, float* io_hu, float* io_hv,
+    const float i_updateWidthX, const float i_updateWidthY,
+    const int i_nX, const int i_nY,
+    const cublasHandle_t* cuhandle)
+{
+	/* BIG PICTURE
+	 *  h[i][j] -= dt/dx * (hNetUpdatesRight[i-1][j-1] + hNetUpdatesLeft[i][j-1])
+	 *          +  dt/dy * (hNetUpdatesAbove[i-1][j-1] + hNetUpdatesBelow[i-1][j]);
+	 *
+	 *  hu[i][j] -= dt/dx * (huNetUpdatesRight[i-1][j-1] + huNetUpdatesLeft[i][j-1]);
+	 *
+         *  hv[i][j] -= dt/dy * (hvNetUpdatesAbove[i-1][j-1] + hvNetUpdatesBelow[i-1][j]);
+	 *
+	 *  ASSERT:  io_h, io_hv, io_hu are (i_ny + 2)x(i_nx + 2)
+	 *
+	 *
+	 *  ASSERT:  The compute capability of the GPU is 2.0 or higher!
+	 *
+	 *  In order to speed up computations, CUBLAS calls are executed concurrently
+	 *  Fermi-era GPUs can execute up to 16 kernels, which is lucky because we
+	 *  have exactly 8 major row transactions per element.  This lets us split
+	 *  the operations in half along kernels.  The relative advantage of this
+	 *  splitting should decrease as nx*ny increases
+	 *
+	 */
+
+	// cublasSaxpy requires pointer to scalar, we provide them here.
+	float dtdx = -i_updateWidthX;
+	float dtdy = -i_updateWidthY;
+
+	// Warning:  i here should maybe be called j, but it is already written
+	// with i and I can't convince myself it should be j, so if you are
+	// confused this is why.
+
+	for(int i = 1; i <= i_nX; i++) {
+		// =========================h section=========================
+		// io_h[i][j] += ...
+		// - (dt/dx) * hNetUpdatesRight[i-1][j-1]
+		cublasSaxpy(cuhandle[0], i_nY, &dtdx,
+			    i_hNetUpdatesRightD + 1 + (i_nY + 1)*(i - 1), 1,
+			    io_h + 1 + (i_nY + 2)*i,			  1);
+
+		// - (dt/dx) * hNetUpdatesLeft[i][j-1]
+		cublasSaxpy(cuhandle[0], i_nY, &dtdx,
+			    i_hNetUpdatesLeftD  + 1 + (i_nY + 1)*i, 1,
+			    io_h + 1 + (i_nY + 2)*i,		    1);
+
+		// - (dt/dy) * hNetUpdatesAbove[i-1][j-1]
+		cublasSaxpy(cuhandle[0], i_nY, &dtdy,
+			    i_hNetUpdatesAboveD  + (i_nY + 1)*i, 1,
+			    io_h + 1 + (i_nY + 2)*i,		      1);
+
+		// - (dt/dy) * hNetUpdatesBelow[i-1][j]
+		cublasSaxpy(cuhandle[0], i_nY, &dtdy,
+			    i_hNetUpdatesBelowD  + 1 + (i_nY + 1)*i, 1,
+			    io_h + 1 + (i_nY + 2)*i,	      1);
+
+		//=========================hu section=========================
+		// - (dt/dx) * huNetUpdatesRight[i-1][j-1]
+		cublasSaxpy(cuhandle[0], i_nY, &dtdx,
+			    i_huNetUpdatesRightD + 1 + (i_nY + 1)*(i - 1), 1,
+			    io_hu + 1 + (i_nY + 2)*i,		       1);
+
+		// - (dt/dx) * huNetUpdatesLeft[i][j-1]
+		cublasSaxpy(cuhandle[0], i_nY, &dtdx,
+			    i_huNetUpdatesLeftD  + 1 + (i_nY + 1)*i, 1,
+			    io_hu + 1 + (i_nY + 2)*i,		       1);
+
+
+		//=========================hv section=========================
+		// - (dt/dy) * hvNetUpdatesAbove[i-1][j-1]
+		cublasSaxpy(cuhandle[0], i_nY, &dtdy,
+			    i_hvNetUpdatesAboveD  + (i_nY + 1)*i, 1,
+			    io_hv + 1 + (i_nY + 2)*i,		       1);
+
+		// - (dt/dy) * hvNetUpdatesBelow[i-1][j]);
+		cublasSaxpy(cuhandle[0], i_nY, &dtdy,
+			    i_hvNetUpdatesBelowD  + 1 + (i_nY + 1)*i, 1,
+			    io_hv + 1 + (i_nY + 2)*i,	       1);
+	}
+
+}
+
 __global__
 void updateUnknownsKernel(
     const float* i_hNetUpdatesLeftD,   const float* i_hNetUpdatesRightD,

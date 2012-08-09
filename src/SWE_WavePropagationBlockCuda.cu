@@ -41,6 +41,8 @@
 static tools::Logger s_sweLogger;
 #endif
 
+#define TIMEKERNELS (0)
+
 // system time includes
 #ifdef TIMEKERNELS
 #include <sys/time.h>
@@ -275,7 +277,7 @@ cudaDeviceSynchronize();
 gettimeofday(&start_time, NULL);
 #endif /* TIMEKERNELS */
 
-	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
+	computeNetUpdatesKernel<<<dimGrid, dimBlock, 0 , stream[0]>>>(
 		hd,
 		hud,
 		hvd,
@@ -298,7 +300,7 @@ gettimeofday(&start_time, NULL);
 
 	dimBlock.x = 1; dimBlock.y = TILE_SIZE;
 	dimGrid.x = 1; dimGrid.y = nx/TILE_SIZE;
-	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
+	computeNetUpdatesKernel<<<dimGrid, dimBlock, 0, stream[1]>>>(
 		hd,
 		hud,
 		hvd,
@@ -321,7 +323,7 @@ gettimeofday(&start_time, NULL);
 
 	dimBlock.x = TILE_SIZE; dimBlock.y = 1;
 	dimGrid.x = ny/TILE_SIZE; dimGrid.y = 1;
-	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
+	computeNetUpdatesKernel<<<dimGrid, dimBlock, 0, stream[2]>>>(
 		hd,
 		hud,
 		hvd,
@@ -393,9 +395,11 @@ struct timeval start_time;
 struct timeval end_time;
 long diff2 = 0;
 long diff3 = 0;
+long diff4 = 0;
 for(int ii=0;ii<20;ii++) {
 cudaDeviceSynchronize();
 gettimeofday(&start_time, NULL);
+#endif /* TIMEKERNELS */
 
 	updateUnknownsKernel<<<dimGrid, dimBlock>>>(
 		hNetUpdatesLeftD,
@@ -414,10 +418,11 @@ gettimeofday(&start_time, NULL);
    		nx,
 		ny);
 
+#ifdef TIMEKERNELS
 cudaDeviceSynchronize();
 gettimeofday(&end_time, NULL);
 diff2 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
-#endif /* TIMEKERNELS */
+gettimeofday(&start_time, NULL);
 
 	updateUnknownsCUBLAS(
 		hNetUpdatesLeftD,
@@ -437,14 +442,34 @@ diff2 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_tim
 		ny,
 		cu_handle);
 
-	cudaDeviceSynchronize();
-
-#ifdef TIMEKERNELS
 cudaDeviceSynchronize();
 gettimeofday(&end_time, NULL);
 diff3 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
+gettimeofday(&start_time, NULL);
+
+	updateUnknownsCUBLASOld(
+		hNetUpdatesLeftD,
+		hNetUpdatesRightD,
+		huNetUpdatesLeftD,
+		huNetUpdatesRightD,
+		hNetUpdatesBelowD,
+		hNetUpdatesAboveD,
+		hvNetUpdatesBelowD,
+		hvNetUpdatesAboveD,
+		hd,
+		hud,
+		hvd,
+		i_deltaT/dx,
+		i_deltaT/dy,
+		nx,
+		ny,
+		cu_handle);
+
+cudaDeviceSynchronize();
+gettimeofday(&end_time, NULL);
+diff4 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
 }
-printf("updateUnknownsKernel: %ld s\nupdateUnknownsCUBLAS: %ld s\n\n", diff2, diff3);
+printf("updateUnknownsKernel: %ld \nupdateUnknownsCUBLAS: %ld\nupdateUnknownsCUBLASOld: %ld\n\n", diff2, diff3, diff4);
 #endif /* TIMEKERNELS */
 
 
