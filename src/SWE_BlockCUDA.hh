@@ -40,6 +40,7 @@ using namespace std;
 void checkCUDAError(const char *msg);
 void tryCUDA(cudaError_t err, const char *msg);
 
+//const int TILE_SIZE=32;
 const int TILE_SIZE=16;
 //const int TILE_SIZE=8;
 
