@@ -1,4 +1,4 @@
-/*
+/**
  * @file
  * This file is part of SWE.
  *
@@ -24,6 +24,9 @@
  *
  * SWE_Block in CUDA, which uses solvers in the wave propagation formulation.
  */
+
+// Uncomment this, to get kernel timings
+//#define TIMEKERNELS
 
 #include "SWE_WavePropagationBlockCuda.hh"
 #include "SWE_BlockCUDA.hh"
@@ -214,7 +217,7 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
    */
 
 	dim3 dimBlock(TILE_SIZE, TILE_SIZE);
-	dim3 dimGrid(nx/TILE_SIZE, ny/TILE_SIZE);
+	dim3 dimGrid(ny/TILE_SIZE, nx/TILE_SIZE);
 
   // "2D array" which holds the blockwise maximum wave speeds
   float* l_maximumWaveSpeedsD;
@@ -261,8 +264,8 @@ gettimeofday(&start_time, NULL);
 		0,
 		0);
 
-	dimBlock.x = TILE_SIZE; dimBlock.y = 1;
-	dimGrid.x = nx/TILE_SIZE; dimGrid.y = 1;
+	dimBlock.x = 1; dimBlock.y = TILE_SIZE;
+	dimGrid.x = 1; dimGrid.y = nx/TILE_SIZE;
 	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
 		hd,
 		hud,
@@ -284,8 +287,8 @@ gettimeofday(&start_time, NULL);
 		0,
 		ny/TILE_SIZE);
 
-	dimBlock.x = 1; dimBlock.y = TILE_SIZE;
-	dimGrid.x = 1; dimGrid.y = ny/TILE_SIZE;
+	dimBlock.x = TILE_SIZE; dimBlock.y = 1;
+	dimGrid.x = ny/TILE_SIZE; dimGrid.y = 1;
 	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
 		hd,
 		hud,
@@ -361,7 +364,6 @@ long diff3 = 0;
 for(int ii=0;ii<20;ii++) {
 cudaThreadSynchronize();
 gettimeofday(&start_time, NULL);
-#endif /* TIMEKERNELS */
 
 	updateUnknownsKernel<<<dimGrid, dimBlock>>>(
 		hNetUpdatesLeftD,
@@ -380,7 +382,6 @@ gettimeofday(&start_time, NULL);
    		nx,
 		ny);
 
-#ifdef TIMEKERNELS
 cudaThreadSynchronize();
 gettimeofday(&end_time, NULL);
 diff2 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);

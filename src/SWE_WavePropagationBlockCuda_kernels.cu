@@ -84,8 +84,9 @@ void computeNetUpdatesKernel(
     const int i_blockOffsetX, const int i_blockOffsetY
 ) {
 	// Recover absolute array indices from CUDA thread constants
-	int i = blockIdx.x * blockDim.x + threadIdx.x;
-	int j = blockIdx.y * blockDim.y + threadIdx.y;
+	// + Kernel offset
+	int i = blockIdx.y * blockDim.y + threadIdx.y + i_offsetX + 1;
+	int j = blockIdx.x * blockDim.x + threadIdx.x + i_offsetY + 1;
 
 	// T is from ./solvers/FWaveCuda.h
 	// this implements "typedef float T;"  by default
@@ -93,12 +94,12 @@ void computeNetUpdatesKernel(
 
 	// computeOneDPo...(arg0,arg1,arg2) = arg0*arg2 + arg1
 	// Position in h, hu, hv, b
-	int oneDPosition = computeOneDPositionKernel(i + i_offsetX + 1,
-		 j + i_offsetY + 1,
+	int unknownPosition = computeOneDPositionKernel(i,
+		 j,
 		 i_nY + 2);
-	// Position in *NetUpdates*
-	int netUpdatePosition = computeOneDPositionKernel(i + i_offsetX + 1,
-		j + i_offsetY + 1,
+	// Position in NetUpdate arrays (upper-right edge)
+	int netUpdatePosition = computeOneDPositionKernel(i,
+		j,
 		i_nY + 1);
 	T localMaxWaveSpeed = 0; // local maximum wave speed
 	__shared__ T maxWaveSpeed[TILE_SIZE * TILE_SIZE]; // maximum wave speeds for this block
@@ -106,42 +107,46 @@ void computeNetUpdatesKernel(
 	// Returns the values of net updates in T netUpdates[5] with values
 	// corresponding to ("h_left","h_right","hu_left","hu_right","MaxWaveSpeed").
 	if (i_offsetY == 0) {
+		int unknownPositionLeft = unknownPosition - i_nY - 2; // cell left to the current cell
 		fWaveComputeNetUpdates(G,
-			i_h[oneDPosition - i_nY - 2],
-			i_h[oneDPosition],
-			i_hu[oneDPosition -  i_nY - 2],
-			i_hu[oneDPosition],
-			i_b[oneDPosition - i_nY - 2],
-			i_b[oneDPosition],
+			i_h[unknownPositionLeft],
+			i_h[unknownPosition],
+			i_hu[unknownPositionLeft],
+			i_hu[unknownPosition],
+			i_b[unknownPositionLeft],
+			i_b[unknownPosition],
 			netUpdates);
 
-		o_hNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[0];
-		o_hNetUpdatesRightD[netUpdatePosition - i_nY - 1] = netUpdates[1];
-		o_huNetUpdatesLeftD[netUpdatePosition - i_nY - 1] = netUpdates[2];
-		o_huNetUpdatesRightD[netUpdatePosition - i_nY - 1] = netUpdates[3];
+		int netUpdatePositionLeft = netUpdatePosition - i_nY - 1; // edge to the left
+		o_hNetUpdatesLeftD[netUpdatePositionLeft] = netUpdates[0];
+		o_hNetUpdatesRightD[netUpdatePositionLeft] = netUpdates[1];
+		o_huNetUpdatesLeftD[netUpdatePositionLeft] = netUpdates[2];
+		o_huNetUpdatesRightD[netUpdatePositionLeft] = netUpdates[3];
 		localMaxWaveSpeed = netUpdates[4];
 	}
 
 	if (i_offsetX == 0) {
+		int unknownPositionBelow = unknownPosition - 1;
 		fWaveComputeNetUpdates(G,
-			i_h[oneDPosition - 1],
-			i_h[oneDPosition],
-			i_hv[oneDPosition - 1],
-			i_hv[oneDPosition],
-			i_b[oneDPosition - 1],
-			i_b[oneDPosition],
+			i_h[unknownPositionBelow],
+			i_h[unknownPosition],
+			i_hv[unknownPositionBelow],
+			i_hv[unknownPosition],
+			i_b[unknownPositionBelow],
+			i_b[unknownPosition],
 			netUpdates);
 
-		o_hNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[0];
-		o_hNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[1];
-		o_hvNetUpdatesBelowD[netUpdatePosition - 1] = netUpdates[2];
-		o_hvNetUpdatesAboveD[netUpdatePosition - 1] = netUpdates[3];
+		int netUpdatePositionBelow = netUpdatePosition - 1;
+		o_hNetUpdatesBelowD[netUpdatePositionBelow] = netUpdates[0];
+		o_hNetUpdatesAboveD[netUpdatePositionBelow] = netUpdates[1];
+		o_hvNetUpdatesBelowD[netUpdatePositionBelow] = netUpdates[2];
+		o_hvNetUpdatesAboveD[netUpdatePositionBelow] = netUpdates[3];
 		if (netUpdates[4] > localMaxWaveSpeed)
 			localMaxWaveSpeed = netUpdates[4];
 	}
 
 	// thread1 is the id of this thread in the block
-	int thread1 = threadIdx.x * blockDim.y + threadIdx.y;
+	int thread1 = threadIdx.y * blockDim.x + threadIdx.x;
 	maxWaveSpeed[thread1] = localMaxWaveSpeed;
 
 	__syncthreads();
@@ -173,7 +178,7 @@ void computeNetUpdatesKernel(
   		nTotalThreads = halfPoint;
 	}
 
-	o_maximumWaveSpeeds[(blockIdx.x+i_blockOffsetX) * (i_nY/TILE_SIZE+1) + (blockIdx.y+i_blockOffsetY)] = maxWaveSpeed[0];
+	o_maximumWaveSpeeds[(blockIdx.y+i_blockOffsetX) * (i_nY/TILE_SIZE+1) + (blockIdx.x+i_blockOffsetY)] = maxWaveSpeed[0];
 }
 
 /**
