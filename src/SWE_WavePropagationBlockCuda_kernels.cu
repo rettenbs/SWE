@@ -104,17 +104,21 @@ void computeNetUpdatesKernel(
 	T localMaxWaveSpeed = 0; // local maximum wave speed
 	__shared__ T maxWaveSpeed[TILE_SIZE * TILE_SIZE]; // maximum wave speeds for this block
 
+	// Values from the current cell (we need them twice)
+	float hCell = i_h[unknownPosition];
+	float bCell = i_b[unknownPosition];
+
 	// Returns the values of net updates in T netUpdates[5] with values
 	// corresponding to ("h_left","h_right","hu_left","hu_right","MaxWaveSpeed").
 	if (i_offsetY == 0) {
 		int unknownPositionLeft = unknownPosition - i_nY - 2; // cell left to the current cell
 		fWaveComputeNetUpdates(G,
 			i_h[unknownPositionLeft],
-			i_h[unknownPosition],
+			hCell,
 			i_hu[unknownPositionLeft],
 			i_hu[unknownPosition],
 			i_b[unknownPositionLeft],
-			i_b[unknownPosition],
+			bCell,
 			netUpdates);
 
 		int netUpdatePositionLeft = netUpdatePosition - i_nY - 1; // edge to the left
@@ -129,11 +133,11 @@ void computeNetUpdatesKernel(
 		int unknownPositionBelow = unknownPosition - 1;
 		fWaveComputeNetUpdates(G,
 			i_h[unknownPositionBelow],
-			i_h[unknownPosition],
+			hCell,
 			i_hv[unknownPositionBelow],
 			i_hv[unknownPosition],
 			i_b[unknownPositionBelow],
-			i_b[unknownPosition],
+			bCell,
 			netUpdates);
 
 		int netUpdatePositionBelow = netUpdatePosition - 1;
