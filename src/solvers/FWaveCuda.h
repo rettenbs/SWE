@@ -74,7 +74,12 @@ void fWaveComputeNetUpdates( const T i_gravity,
                              T i_huLeft, T i_huRight,
                              T i_bLeft,  T i_bRight,
 
-                             T o_netUpdates[5]);
+                             T* o_netUpdates0,
+                             T* o_netUpdates1,
+                             T* o_netUpdates2,
+                             T* o_netUpdates3,
+                             T* o_netUpdates4
+                             );
 
 __device__
 inline void fWaveComputeWaveSpeeds( const T i_gravity,
@@ -124,15 +129,19 @@ void fWaveComputeNetUpdates( const T i_gravity,
                              T i_huLeft, T i_huRight,
                              T i_bLeft,  T i_bRight,
 
-                             T o_netUpdates[5] ) {
+                             T* o_netUpdates0,
+                             T* o_netUpdates1,
+                             T* o_netUpdates2,
+                             T* o_netUpdates3,
+                             T* o_netUpdates4) {
   //reset net updates
-  o_netUpdates[0] = (T)0.; //hUpdateLeft
-  o_netUpdates[1] = (T)0.; //hUpdateRight
-  o_netUpdates[2] = (T)0.; //huUpdateLeft
-  o_netUpdates[3] = (T)0.; //huUpdateRight
+  o_netUpdates0[0] = (T)0.; //hUpdateLeft
+  o_netUpdates1[0] = (T)0.; //hUpdateRight
+  o_netUpdates2[0] = (T)0.; //huUpdateLeft
+  o_netUpdates3[0] = (T)0.; //huUpdateRight
 
   //reset the maximum wave speed
-  o_netUpdates[4] = (T)0.; //maxWaveSpeed
+  o_netUpdates4[0] = (T)0.; //maxWaveSpeed
 
   // determine the wet dry state and corr. values, if necessary.
   if( !(i_hLeft > dryTol && i_hRight > dryTol) ) {
@@ -183,38 +192,38 @@ void fWaveComputeNetUpdates( const T i_gravity,
   //compute the net-updates
   //1st wave family
   if(waveSpeeds[0] < -zeroTol) { //left going
-    o_netUpdates[0] +=  fWaves[0][0]; //hUpdateLeft
-    o_netUpdates[2] += fWaves[0][1]; //huUpdateLeft
+    o_netUpdates0[0] +=  fWaves[0][0]; //hUpdateLeft
+    o_netUpdates2[0] += fWaves[0][1]; //huUpdateLeft
   }
   else if(waveSpeeds[0] > zeroTol) { //right going
-    o_netUpdates[1] +=  fWaves[0][0]; //hUpdateRight
-    o_netUpdates[3] += fWaves[0][1]; //huUpdateRight
+    o_netUpdates1[0] +=  fWaves[0][0]; //hUpdateRight
+    o_netUpdates3[0] += fWaves[0][1]; //huUpdateRight
   }
   else { //split waves
-    o_netUpdates[0] +=   (T).5*fWaves[0][0]; //hUpdateLeft
-    o_netUpdates[2] +=  (T).5*fWaves[0][1]; //huUpdateLeft
-    o_netUpdates[1] +=  (T).5*fWaves[0][0]; //hUpdateRight
-    o_netUpdates[3] += (T).5*fWaves[0][1]; //huUpdateRight
+    o_netUpdates0[0] +=   (T).5*fWaves[0][0]; //hUpdateLeft
+    o_netUpdates2[0] +=  (T).5*fWaves[0][1]; //huUpdateLeft
+    o_netUpdates1[0] +=  (T).5*fWaves[0][0]; //hUpdateRight
+    o_netUpdates3[0] += (T).5*fWaves[0][1]; //huUpdateRight
   }
 
   //2nd wave family
   if(waveSpeeds[1] < -zeroTol) { //left going
-      o_netUpdates[0] +=  fWaves[1][0]; //hUpdateLeft
-      o_netUpdates[2] += fWaves[1][1]; //huUpdateLeft
+      o_netUpdates0[0] +=  fWaves[1][0]; //hUpdateLeft
+      o_netUpdates2[0] += fWaves[1][1]; //huUpdateLeft
   }
   else if(waveSpeeds[1] > zeroTol) { //right going
-      o_netUpdates[1] += fWaves[1][0]; //hUpdateRight
-      o_netUpdates[3] += fWaves[1][1]; //huUpdateRight
+      o_netUpdates1[0] += fWaves[1][0]; //hUpdateRight
+      o_netUpdates3[0] += fWaves[1][1]; //huUpdateRight
   }
   else { //split waves
-    o_netUpdates[0] +=   (T).5*fWaves[1][0]; //hUpdateLeft
-    o_netUpdates[2] +=  (T).5*fWaves[1][1]; //huUpdateLeft
-    o_netUpdates[1] +=  (T).5*fWaves[1][0]; //hUpdateRight
-    o_netUpdates[3] += (T).5*fWaves[1][1]; //huUpdateRight
+    o_netUpdates0[0] +=  (T).5*fWaves[1][0]; //hUpdateLeft
+    o_netUpdates2[0] +=  (T).5*fWaves[1][1]; //huUpdateLeft
+    o_netUpdates1[0] +=  (T).5*fWaves[1][0]; //hUpdateRight
+    o_netUpdates3[0] +=  (T).5*fWaves[1][1]; //huUpdateRight
   }
 
   //compute maximum wave speed (-> CFL-condition)
-  o_netUpdates[4] = fmax( fabs(waveSpeeds[0]) , fabs(waveSpeeds[1]) );
+  o_netUpdates4[0] = fmax( fabs(waveSpeeds[0]) , fabs(waveSpeeds[1]) );
 }
 
 /**

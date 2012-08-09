@@ -90,7 +90,11 @@ void computeNetUpdatesKernel(
 
 	// T is from ./solvers/FWaveCuda.h
 	// this implements "typedef float T;"  by default
-	T netUpdates[5];
+	T netupdates0;
+	T netupdates1;
+	T netupdates2;
+	T netupdates3;
+	T netupdates4;
 
 	// computeOneDPo...(arg0,arg1,arg2) = arg0*arg2 + arg1
 	// Position in h, hu, hv, b
@@ -115,14 +119,18 @@ void computeNetUpdatesKernel(
 			i_hu[unknownPosition],
 			i_b[unknownPositionLeft],
 			i_b[unknownPosition],
-			netUpdates);
+			&netupdates0,
+			&netupdates1,
+			&netupdates2,
+			&netupdates3,
+			&netupdates4);
 
 		int netUpdatePositionLeft = netUpdatePosition - i_nY - 1; // edge to the left
-		o_hNetUpdatesLeftD[netUpdatePositionLeft] = netUpdates[0];
-		o_hNetUpdatesRightD[netUpdatePositionLeft] = netUpdates[1];
-		o_huNetUpdatesLeftD[netUpdatePositionLeft] = netUpdates[2];
-		o_huNetUpdatesRightD[netUpdatePositionLeft] = netUpdates[3];
-		localMaxWaveSpeed = netUpdates[4];
+		o_hNetUpdatesLeftD[netUpdatePositionLeft] = netupdates0;
+		o_hNetUpdatesRightD[netUpdatePositionLeft] = netupdates1;
+		o_huNetUpdatesLeftD[netUpdatePositionLeft] = netupdates2;
+		o_huNetUpdatesRightD[netUpdatePositionLeft] = netupdates3;
+		localMaxWaveSpeed = netupdates4;
 	}
 
 	if (i_offsetX == 0) {
@@ -134,15 +142,20 @@ void computeNetUpdatesKernel(
 			i_hv[unknownPosition],
 			i_b[unknownPositionBelow],
 			i_b[unknownPosition],
-			netUpdates);
+			&netupdates0,
+			&netupdates1,
+			&netupdates2,
+			&netupdates3,
+			&netupdates4
+			);
 
 		int netUpdatePositionBelow = netUpdatePosition - 1;
-		o_hNetUpdatesBelowD[netUpdatePositionBelow] = netUpdates[0];
-		o_hNetUpdatesAboveD[netUpdatePositionBelow] = netUpdates[1];
-		o_hvNetUpdatesBelowD[netUpdatePositionBelow] = netUpdates[2];
-		o_hvNetUpdatesAboveD[netUpdatePositionBelow] = netUpdates[3];
-		if (netUpdates[4] > localMaxWaveSpeed)
-			localMaxWaveSpeed = netUpdates[4];
+		o_hNetUpdatesBelowD[netUpdatePositionBelow] = netupdates0;
+		o_hNetUpdatesAboveD[netUpdatePositionBelow] = netupdates1;
+		o_hvNetUpdatesBelowD[netUpdatePositionBelow] = netupdates2;
+		o_hvNetUpdatesAboveD[netUpdatePositionBelow] = netupdates3;
+		if (netupdates4 > localMaxWaveSpeed)
+			localMaxWaveSpeed = netupdates4;
 	}
 
 	// thread1 is the id of this thread in the block
