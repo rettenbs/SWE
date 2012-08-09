@@ -227,7 +227,7 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
    */
 
 
-//====================================Timing==================================
+#ifdef TIMEKERNELS
 struct timeval start_time;
 struct timeval end_time;
 long diff1 = 0;
@@ -236,6 +236,7 @@ long diff1 = 0;
 for(int ii=0;ii<20;ii++) {
 cudaThreadSynchronize();
 gettimeofday(&start_time, NULL);
+#endif /* TIMEKERNELS */
 
 	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
 		hd,
@@ -304,12 +305,14 @@ gettimeofday(&start_time, NULL);
 		nx/TILE_SIZE,
 		0);
 
+
+#ifdef TIMEKERNELS
 cudaThreadSynchronize();
 gettimeofday(&end_time, NULL);
 diff1 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
 }
-
 printf("computeNetUpdatesKernel: %ld s\n", diff1);
+#endif /* TIMEKERNELS */
 
   /*
    * Finalize (max reduction of the maximumWaveSpeeds-array.)
@@ -348,7 +351,7 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 	dim3 dimBlock(TILE_SIZE, TILE_SIZE);
 	dim3 dimGrid(nx/TILE_SIZE, ny/TILE_SIZE);
 
-//===========TIMING CODE
+#ifdef TIMEKERNELS
 struct timeval start_time;
 struct timeval end_time;
 long diff2 = 0;
@@ -356,7 +359,7 @@ long diff3 = 0;
 for(int ii=0;ii<20;ii++) {
 cudaThreadSynchronize();
 gettimeofday(&start_time, NULL);
-//===========END TIMING CODE
+#endif /* TIMEKERNELS */
 
 	updateUnknownsKernel<<<dimGrid, dimBlock>>>(
 		hNetUpdatesLeftD,
@@ -375,12 +378,11 @@ gettimeofday(&start_time, NULL);
    		nx,
 		ny);
 
-//===========TIMING CODE
+#ifdef TIMEKERNELS
 cudaThreadSynchronize();
 gettimeofday(&end_time, NULL);
 diff2 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
-gettimeofday(&start_time, NULL);
-//===========END TIMING CODE
+#endif /* TIMEKERNELS */
 
 	updateUnknownsCUBLAS(
 		hNetUpdatesLeftD,
@@ -399,13 +401,13 @@ gettimeofday(&start_time, NULL);
    		nx,
 		ny);
 
-//===========TIMING CODE
+#ifdef TIMEKERNELS
 cudaThreadSynchronize();
 gettimeofday(&end_time, NULL);
 diff3 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
 }
 printf("updateUnknownsKernel: %ld s\nupdateUnknownsCUBLAS: %ld s\n\n", diff2, diff3);
-//===========END TIMING CODE
+#endif /* TIMEKERNELS */
 
 
   // synchronize the copy layer for MPI communication
