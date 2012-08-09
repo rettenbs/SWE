@@ -28,6 +28,8 @@
 #ifndef SWEWAVEPROPAGATIONBLOCKCUDAKERNELS_HH_
 #define SWEWAVEPROPAGATIONBLOCKCUDAKERNELS_HH_
 
+#include "cublas_v2.h"
+
 // CUDA-kernel which computes the net-updates
 __global__
 void computeNetUpdatesKernel(
@@ -50,7 +52,8 @@ void updateUnknownsCUBLAS(
     const float* i_hvNetUpdatesBelowD, const float* i_hvNetUpdatesAboveD,
     float* io_h, float* io_hu, float* io_hv,
     const float i_updateWidthX, const float i_updateWidthY,
-    const int i_nX, const int i_nY
+    const int i_nX, const int i_nY,
+    const cublasHandle_t* cuhandle
 );
 
 // CUDA-kernel which updates the unknowns

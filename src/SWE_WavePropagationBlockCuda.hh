@@ -31,6 +31,12 @@
 #include <cassert>
 #include "SWE_BlockCUDA.hh"
 
+// Define CUDA stream count
+#define CUDASTREAMCOUNT (1024)
+
+// This SWE_BlockCuda implementation requires CUBLAS
+#include "cublas_v2.h"
+
 /**
  * SWE_WavePropagationBlockCuda is an implementation of the SWE_BlockCuda abstract class.
  * It uses a wave propagation solver which is defined with the pre-compiler flag WAVE_PROPAGATION_SOLVER (see above).
@@ -61,6 +67,14 @@ class SWE_WavePropagationBlockCuda: public SWE_BlockCUDA {
     float* hvNetUpdatesBelowD;
     //! "2D array" which holds the net-updates for the momentum in y-direction (wave propagating to the bottom).
     float* hvNetUpdatesAboveD;
+    
+    // Number of CUDA streams
+    static const int streamnum = CUDASTREAMCOUNT;
+    cudaStream_t stream[streamnum];
+    
+    // CUBLAS error and handle variables
+    cublasHandle_t cu_handle[streamnum];
+    cublasStatus_t cublas_status;
 
   public:
     // constructor of SWE_WavePropagationBlockCuda

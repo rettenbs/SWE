@@ -50,7 +50,6 @@ static tools::Logger s_sweLogger;
 // Thrust library (used for the final maximum reduction in the method computeNumericalFluxes(...))
 #include <thrust/device_vector.h>
 
-
 /**
  * Constructor of a SWE_WavePropagationBlockCuda.
  *
@@ -129,6 +128,26 @@ SWE_WavePropagationBlockCuda::SWE_WavePropagationBlockCuda( const float i_offset
 
   cudaMalloc((void**)&hvNetUpdatesAboveD, sizeOfNetUpdates);
   checkCUDAError("allocate device memory for hNetUpdatesAboveD");
+
+  // Create the CUDA streams
+  for(int i = 0;i<streamnum;i++) {
+	  cudaStreamCreate(&stream[i]);
+  }
+
+  // Initialize the CUBLAS handles
+  for(int i = 0;i<streamnum;i++) {
+	  cublas_status = cublasCreate(&cu_handle[i]);
+	  if(cublas_status != CUBLAS_STATUS_SUCCESS) {
+		  if(cublas_status == CUBLAS_STATUS_NOT_INITIALIZED) printf("CUBLAS initialization failure: CUDA not initialized.\n");
+		  else if(cublas_status == CUBLAS_STATUS_ALLOC_FAILED) printf("CUBLAS initialization failure:  could not allocate resources.\n");
+		  else printf("CUBLAS initialization failure:  unspecified reason.\n");
+	  }
+
+	  cublas_status = cublasSetStream(cu_handle[i], stream[i]);
+	  if(cublas_status != CUBLAS_STATUS_SUCCESS) {
+		  printf("CUBLAS error:  could not map a CUDA stream to a CUBLAS handle.\n");
+	  }
+  }
 }
 
 /**
@@ -148,6 +167,19 @@ SWE_WavePropagationBlockCuda::~SWE_WavePropagationBlockCuda() {
   cudaFree(hNetUpdatesAboveD);
   cudaFree(hvNetUpdatesBelowD);
   cudaFree(hvNetUpdatesAboveD);
+
+  // Free the cuda streams
+  for(int i=0;i<streamnum;i++) {
+	  cudaStreamDestroy(stream[i]);
+  }
+
+  // Free the CUBLAS handles
+  for(int i=0;i<streamnum;i++) {
+	  cublas_status = cublasDestroy(cu_handle[i]);
+	  if(cublas_status != CUBLAS_STATUS_SUCCESS) {
+		  printf("Could not destroy the CUBLAS handle.\n");
+	  }
+  }
 
   // reset the cuda device
   s_sweLogger.printString("Resetting the CUDA devices");
@@ -236,7 +268,7 @@ long diff1 = 0;
 
 // Run all four kernels 20 times, print average time of execution
 for(int ii=0;ii<20;ii++) {
-cudaThreadSynchronize();
+cudaDeviceSynchronize();
 gettimeofday(&start_time, NULL);
 #endif /* TIMEKERNELS */
 
@@ -309,7 +341,7 @@ gettimeofday(&start_time, NULL);
 
 
 #ifdef TIMEKERNELS
-cudaThreadSynchronize();
+cudaDeviceSynchronize();
 gettimeofday(&end_time, NULL);
 diff1 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
 }
@@ -359,10 +391,11 @@ struct timeval end_time;
 long diff2 = 0;
 long diff3 = 0;
 for(int ii=0;ii<20;ii++) {
-cudaThreadSynchronize();
+cudaDeviceSynchronize();
 gettimeofday(&start_time, NULL);
 #endif /* TIMEKERNELS */
 
+/*
 	updateUnknownsKernel<<<dimGrid, dimBlock>>>(
 		hNetUpdatesLeftD,
 		hNetUpdatesRightD,
@@ -379,9 +412,10 @@ gettimeofday(&start_time, NULL);
 		i_deltaT/dy,
    		nx,
 		ny);
+*/
 
 #ifdef TIMEKERNELS
-cudaThreadSynchronize();
+cudaDeviceSynchronize();
 gettimeofday(&end_time, NULL);
 diff2 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
 #endif /* TIMEKERNELS */
@@ -393,18 +427,21 @@ diff2 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_tim
 		huNetUpdatesRightD,
 		hNetUpdatesBelowD,
 		hNetUpdatesAboveD,
-    		hvNetUpdatesBelowD,
+		hvNetUpdatesBelowD,
 		hvNetUpdatesAboveD,
-    		hd,
+		hd,
 		hud,
 		hvd,
 		i_deltaT/dx,
 		i_deltaT/dy,
-   		nx,
-		ny);
+		nx,
+		ny,
+		cu_handle);
+
+	cudaDeviceSynchronize();
 
 #ifdef TIMEKERNELS
-cudaThreadSynchronize();
+cudaDeviceSynchronize();
 gettimeofday(&end_time, NULL);
 diff3 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
 }
