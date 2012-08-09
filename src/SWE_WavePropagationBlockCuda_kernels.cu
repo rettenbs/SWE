@@ -97,24 +97,52 @@ void computeNetUpdatesKernel(
 	int unknownPosition = computeOneDPositionKernel(i,
 		 j,
 		 i_nY + 2);
+	int unknownPositionBelow = unknownPosition - 1; // cell below the current cell
 	// Position in NetUpdate arrays (upper-right edge)
 	int netUpdatePosition = computeOneDPositionKernel(i,
 		j,
 		i_nY + 1);
+
 	T localMaxWaveSpeed = 0; // local maximum wave speed
-	__shared__ T maxWaveSpeed[TILE_SIZE * TILE_SIZE]; // maximum wave speeds for this block
+
+	// Copies in shared memory
+	__shared__ float l_h[(TILE_SIZE+1) * (TILE_SIZE+1)];
+	__shared__ float l_b[(TILE_SIZE+1) * (TILE_SIZE+1)];
+	__shared__ float l_hu[(TILE_SIZE+1) * (TILE_SIZE+1)];
+	__shared__ float l_hv[(TILE_SIZE+1) * (TILE_SIZE+1)];
+
+	// Position in shared arrays
+	int l_unknownPosition = (threadIdx.y+1) * (blockDim.x+1) + (threadIdx.x+1);
+	int l_unknownPositionLeft = l_unknownPosition - blockDim.x - 1;
+	int l_unknownPositionBelow = l_unknownPosition - 1;
+
+	// Copy values
+	l_h[l_unknownPosition] = i_h[unknownPosition];
+	l_b[l_unknownPosition] = i_b[unknownPosition];
+	l_hu[l_unknownPosition] = i_hu[unknownPosition];
+	if (threadIdx.x == 0) {
+		l_h[l_unknownPositionBelow] = i_h[unknownPositionBelow];
+		l_b[l_unknownPositionBelow] = i_b[unknownPositionBelow];
+	}
+	if (threadIdx.y == 0) {
+		int unknownPositionLeft = unknownPosition - i_nY - 2; // cell left to the current cell
+		l_h[l_unknownPositionLeft] = i_h[unknownPositionLeft];
+		l_b[l_unknownPositionLeft] = i_b[unknownPositionLeft];
+		l_hu[l_unknownPositionLeft] = i_hu[unknownPositionLeft];
+	}
+
+	__syncthreads();
 
 	// Returns the values of net updates in T netUpdates[5] with values
 	// corresponding to ("h_left","h_right","hu_left","hu_right","MaxWaveSpeed").
 	if (i_offsetY == 0) {
-		int unknownPositionLeft = unknownPosition - i_nY - 2; // cell left to the current cell
 		fWaveComputeNetUpdates(G,
-			i_h[unknownPositionLeft],
-			i_h[unknownPosition],
-			i_hu[unknownPositionLeft],
-			i_hu[unknownPosition],
-			i_b[unknownPositionLeft],
-			i_b[unknownPosition],
+			l_h[l_unknownPositionLeft],
+			l_h[l_unknownPosition],
+			l_hu[l_unknownPositionLeft],
+			l_hu[l_unknownPosition],
+			l_b[l_unknownPositionLeft],
+			l_b[l_unknownPosition],
 			netUpdates);
 
 		int netUpdatePositionLeft = netUpdatePosition - i_nY - 1; // edge to the left
@@ -125,15 +153,22 @@ void computeNetUpdatesKernel(
 		localMaxWaveSpeed = netUpdates[4];
 	}
 
+	// Load data for second fWave computation
+	l_hv[l_unknownPosition] = i_hv[unknownPosition];
+	if (threadIdx.x == 0) {
+		l_hv[l_unknownPositionBelow] = i_hv[unknownPositionBelow];
+	}
+
+	__syncthreads();
+
 	if (i_offsetX == 0) {
-		int unknownPositionBelow = unknownPosition - 1;
 		fWaveComputeNetUpdates(G,
-			i_h[unknownPositionBelow],
-			i_h[unknownPosition],
-			i_hv[unknownPositionBelow],
-			i_hv[unknownPosition],
-			i_b[unknownPositionBelow],
-			i_b[unknownPosition],
+			l_h[l_unknownPositionBelow],
+			l_h[l_unknownPosition],
+			l_hv[l_unknownPositionBelow],
+			l_hv[l_unknownPosition],
+			l_b[l_unknownPositionBelow],
+			l_b[l_unknownPosition],
 			netUpdates);
 
 		int netUpdatePositionBelow = netUpdatePosition - 1;
@@ -144,6 +179,8 @@ void computeNetUpdatesKernel(
 		if (netUpdates[4] > localMaxWaveSpeed)
 			localMaxWaveSpeed = netUpdates[4];
 	}
+
+	__shared__ T maxWaveSpeed[TILE_SIZE * TILE_SIZE]; // maximum wave speeds for this block
 
 	// thread1 is the id of this thread in the block
 	int thread1 = threadIdx.y * blockDim.x + threadIdx.x;
