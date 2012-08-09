@@ -44,8 +44,20 @@ void computeNetUpdatesKernel(
     const int i_blockOffSetX = 0, const int i_blockOffSetY = 0
 );
 
-// Host function to update the unknowns (calling CUBLAS commands)
+// Host function to update the unknowns (calling CUBLAS commands) (with 16 streams)
 void updateUnknownsCUBLAS(
+    const float* i_hNetUpdatesLeftD,   const float* i_hNetUpdatesRightD,
+    const float* i_huNetUpdatesLeftD,  const float* i_huNetUpdatesRightD,
+    const float* i_hNetUpdatesBelowD,  const float* i_hNetUpdatesAboveD,
+    const float* i_hvNetUpdatesBelowD, const float* i_hvNetUpdatesAboveD,
+    float* io_h, float* io_hu, float* io_hv,
+    const float i_updateWidthX, const float i_updateWidthY,
+    const int i_nX, const int i_nY,
+    const cublasHandle_t* cuhandle
+);
+
+// Host function to update the unknowns (calling CUBLAS commands) (with 1 stream)
+void updateUnknownsCUBLASOld(
     const float* i_hNetUpdatesLeftD,   const float* i_hNetUpdatesRightD,
     const float* i_huNetUpdatesLeftD,  const float* i_huNetUpdatesRightD,
     const float* i_hNetUpdatesBelowD,  const float* i_hNetUpdatesAboveD,
