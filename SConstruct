@@ -199,6 +199,7 @@ if env['parallelization'] in ['cuda', 'mpi_with_cuda']:
   # compile explicitly with 64-bit on Mac OS X
   if env['PLATFORM'] == 'darwin':
     env.Append(NVCCFLAGS=' -m64')
+  env.Append(NVCCFLAGS=' -Xptxas="-v"')
 
 # set the precompiler flags for MPI (CUDA)
 if env['parallelization'] in ['mpi_with_cuda']:
