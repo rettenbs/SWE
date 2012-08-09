@@ -38,6 +38,9 @@
 static tools::Logger s_sweLogger;
 #endif
 
+// system time includes
+#include <sys/time.h>
+
 // CUDA-C includes
 #include <cuda.h>
 #include <cuda_runtime_api.h>
@@ -223,7 +226,16 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
    * Compute the net updates for the 'main part and the two 'boundary' parts.
    */
 
-	// use sys/time to get higher-resolution timing
+
+//====================================Timing==================================
+struct timeval start_time;
+struct timeval end_time;
+long diff1 = 0;
+
+// Run all four kernels 20 times, print average time of execution
+for(int ii=0;ii<20;ii++) {
+cudaThreadSynchronize();
+gettimeofday(&start_time, NULL);
 
 	computeNetUpdatesKernel<<<dimGrid, dimBlock>>>(
 		hd,
@@ -292,6 +304,13 @@ void SWE_WavePropagationBlockCuda::computeNumericalFluxes() {
 		nx/TILE_SIZE,
 		0);
 
+cudaThreadSynchronize();
+gettimeofday(&end_time, NULL);
+diff1 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
+}
+
+printf("computeNetUpdatesKernel: %ld s\n", diff1);
+
   /*
    * Finalize (max reduction of the maximumWaveSpeeds-array.)
    *
@@ -329,7 +348,16 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 	dim3 dimBlock(TILE_SIZE, TILE_SIZE);
 	dim3 dimGrid(nx/TILE_SIZE, ny/TILE_SIZE);
 
-/*
+//===========TIMING CODE
+struct timeval start_time;
+struct timeval end_time;
+long diff2 = 0;
+long diff3 = 0;
+for(int ii=0;ii<20;ii++) {
+cudaThreadSynchronize();
+gettimeofday(&start_time, NULL);
+//===========END TIMING CODE
+
 	updateUnknownsKernel<<<dimGrid, dimBlock>>>(
 		hNetUpdatesLeftD,
 		hNetUpdatesRightD,
@@ -347,7 +375,13 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
    		nx,
 		ny);
 
-*/
+//===========TIMING CODE
+cudaThreadSynchronize();
+gettimeofday(&end_time, NULL);
+diff2 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
+gettimeofday(&start_time, NULL);
+//===========END TIMING CODE
+
 	updateUnknownsCUBLAS(
 		hNetUpdatesLeftD,
 		hNetUpdatesRightD,
@@ -364,6 +398,14 @@ void SWE_WavePropagationBlockCuda::updateUnknowns(const float i_deltaT) {
 		i_deltaT/dy,
    		nx,
 		ny);
+
+//===========TIMING CODE
+cudaThreadSynchronize();
+gettimeofday(&end_time, NULL);
+diff3 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
+}
+printf("updateUnknownsKernel: %ld s\nupdateUnknownsCUBLAS: %ld s\n\n", diff2, diff3);
+//===========END TIMING CODE
 
 
   // synchronize the copy layer for MPI communication
