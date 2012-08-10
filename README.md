@@ -19,7 +19,9 @@ Implementation Notes
         export LD_LIBRARY_PATH
 
 * Once configured, the project can be built from the SWE directory by executing:
+* 
         scons buildVariablesFile=build/options/npsgpu_SWE_gnu_cuda_asagi.py
 
 * This default build must reference a netcdf file for writing;
+* 
         ./build/SWE_gnu_release_cuda_fwave 6400 6400 ./build/output.nc
