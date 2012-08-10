@@ -13,7 +13,7 @@ Implementation Notes
 
 * Users on the NPS mathgpu cluster will need to modify their $PATH:
 
-        PATH=$PATH:$HOME/bin:/tmp/software_SWE/software/scons/scons-2.1.0/bin/:/home/student27/sanchez/Downloads/pdtoolkit-3.18/x86_64/bin
+        PATH=$PATH:$HOME/bin:/tmp/software_SWE/software/scons/scons-2.1.0/bin/
         LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/software_SWE/software/netcdf/lib/:/tmp/software_SWE/software/asagi/nompi/lib/
         export PATH
         export LD_LIBRARY_PATH
