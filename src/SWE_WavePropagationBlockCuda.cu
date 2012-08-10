@@ -348,7 +348,7 @@ cudaDeviceSynchronize();
 gettimeofday(&end_time, NULL);
 diff1 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
 }
-printf("computeNetUpdatesKernel: %ld s\n", diff1);
+printf("computeNetUpdatesKernel: \t%ld\n", diff1);
 #endif /* TIMEKERNELS */
 
   /*
@@ -500,7 +500,7 @@ cudaDeviceSynchronize();
 gettimeofday(&end_time, NULL);
 diff5 += ((int)end_time.tv_sec - (int)start_time.tv_sec)*1000000 + ((int)end_time.tv_usec - (int)start_time.tv_usec);
 }
-printf("updateUnknownsKernel: \t\t\t%ld \nupdateUnknownsCUBLAS: \t\t%ld\nupdateUnknownsCUBLASOld: \t%ld\nnupdateUnknownsCUBLASAtomic: \t%ld\n\n", diff2, diff3, diff4, diff5);
+printf("updateUnknownsKernel: \t\t%ld \nupdateUnknownsCUBLAS: \t\t%ld\nupdateUnknownsCUBLASOld: \t%ld\nnupdateUnknownsCUBLASAtomic: \t%ld\n\n", diff2, diff3, diff4, diff5);
 #endif /* TIMEKERNELS */
 
 
