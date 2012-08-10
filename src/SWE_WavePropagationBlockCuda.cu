@@ -26,7 +26,7 @@
  */
 
 // Uncomment this, to get kernel timings
-#define TIMEKERNELS (1)
+//#define TIMEKERNELS (1)
 
 #include "SWE_WavePropagationBlockCuda.hh"
 #include "SWE_BlockCUDA.hh"
